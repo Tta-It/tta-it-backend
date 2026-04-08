@@ -1,0 +1,99 @@
+# TtaIt Backend
+
+서울시 따릉이 기업 협약 기반 ESG 실천 플랫폼용 Spring Boot 백엔드입니다.
+
+## 기술 스택
+
+- Java 17
+- Spring Boot 3.3
+- Spring Security + JWT
+- Spring WebSocket (예정: 실시간 알림)
+- Spring AOP (예정: 접근 로그)
+- MyBatis
+- Oracle Database
+- Docker Compose
+
+## 현재 포함된 기능
+
+- 관리자 / 기업 관리자 권한 구분
+- JWT 기반 로그인 인증
+- 관리자 회원가입 (`/auth/signup/admin`)
+- 기업 관리자 회원가입 (`/auth/signup/company-admin`)
+- 내 정보 조회 (`/users/me`)
+- 공통 응답 포맷 / 전역 예외 처리
+- Oracle 스키마 초기화 + 관리자 시드
+
+## 패키지 구조
+
+```text
+com.ttait
+|- global          : 공통 설정, 예외, 응답, 시큐리티
+|- domain.auth     : 로그인, 회원가입, 토큰 발급
+|- domain.user     : 사용자 계정/권한/내 정보 조회
+```
+
+## 실행 전 준비
+
+### 1. 환경변수 설정
+
+`.env.example`을 복사해서 `.env` 파일을 만들고 값을 채워넣으세요.
+
+```bash
+cp .env.example .env
+```
+
+`.env`는 gitignored 되어 있어 커밋되지 않습니다. 필요한 값은 `.env.example`의 주석을 참고하세요.
+
+### 2. Oracle DB 기동 (docker compose)
+
+```bash
+docker compose up -d
+```
+
+- 초기 스키마는 [`docker/oracle/init/01-schema.sh`](docker/oracle/init/01-schema.sh) 에서 생성됩니다.
+- 관리자 시드는 [`docker/oracle/init/02-seed.sh`](docker/oracle/init/02-seed.sh) 에서 적재됩니다.
+- 자격증명은 docker-compose 가 `.env` 에서 자동으로 읽어옵니다.
+
+### 3. 애플리케이션 기동
+
+```bash
+./gradlew bootRun
+```
+
+Spring Boot 는 `spring.config.import` 설정을 통해 프로젝트 루트의 `.env` 파일을 자동으로 읽어옵니다.
+
+IntelliJ 에서 실행할 경우: Run Configuration → Environment variables → EnvFile 플러그인 또는 직접 env var 로드를 사용하세요.
+
+## 기본 API
+
+- `POST /api/v1/auth/signup/admin`
+- `POST /api/v1/auth/signup/company-admin`
+- `POST /api/v1/auth/login`
+- `GET  /api/v1/users/me`
+
+## 기본 관리자 계정
+
+`docker/oracle/init/02-seed.sh` 에 BCrypt 해시로 관리자 계정이 미리 적재됩니다.
+로컬 개발용 기본 비밀번호는 개발자 온보딩 문서를 참고하세요.
+
+> **배포 전 필수**: 운영 환경에서는 시드 파일의 BCrypt 해시를 새로 생성한 값으로 교체하거나, 시드를 비활성화하고 별도 절차로 초기 관리자 계정을 생성해야 합니다.
+
+## HTTP 클라이언트 테스트
+
+IntelliJ HTTP Client 파일이 `http/` 디렉터리에 포함되어 있습니다.
+
+- `http/auth.http` — 인증 플로우 테스트 시나리오
+- `http/http-client.env.json` — 공개 환경변수 (commit)
+- `http/http-client.private.env.json.example` — 비밀 환경변수 템플릿 (복사해서 실제 값 채우기)
+
+```bash
+cp http/http-client.private.env.json.example http/http-client.private.env.json
+```
+
+## 개발 예정
+
+- 협약 신청 / 승인 도메인
+- 파일 업로드 모듈
+- WebSocket 알림
+- AOP 접근 로그
+- 대시보드 통계 (CSV 적재)

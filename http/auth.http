@@ -1,0 +1,247 @@
+### 1) 기본 관리자로 로그인 → 토큰 발급 확인
+### 기대: 200 + accessToken, role=ADMIN
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{adminLoginId}}",
+  "password": "{{adminPassword}}"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("role is ADMIN", function() {
+        client.assert(response.body.data.role === "ADMIN", "role mismatch");
+    });
+    client.global.set("adminToken", response.body.data.accessToken);
+    client.log("admin token saved: " + response.body.data.accessToken.substring(0, 20) + "...");
+%}
+
+
+### 2) 새 관리자 생성 (admin2)
+### 기대: 201 + userId, status=ACTIVE 로 바로 로그인 가능해짐
+POST {{baseUrl}}/api/v1/auth/signup/admin
+Content-Type: application/json
+
+{
+  "loginId": "admin2",
+  "password": "Admin234!",
+  "name": "2번관리자",
+  "email": "admin2@ttait.com",
+  "phone": "010-1111-0002"
+}
+
+> {%
+    client.test("201 Created or 409 (already exists)", function() {
+        client.assert(
+            response.status === 201 || response.status === 409,
+            "expected 201 or 409 but got " + response.status
+        );
+    });
+    if (response.status === 201) {
+        client.log("new admin userId: " + response.body.data.userId);
+    } else {
+        client.log("admin2 already exists — #3 로그인은 여전히 동작해야 함");
+    }
+%}
+
+
+### 3) 새 관리자로 로그인
+### 기대: 200 + accessToken, role=ADMIN
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "admin2",
+  "password": "Admin234!"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.global.set("admin2Token", response.body.data.accessToken);
+%}
+
+
+### 4) 기업 관리자 회원가입 (acme01)
+### 기대: 201 + userId, status=PENDING 으로 생성 → 아직 로그인 불가
+POST {{baseUrl}}/api/v1/auth/signup/company-admin
+Content-Type: application/json
+
+{
+  "loginId": "acme01",
+  "password": "Acme1234!",
+  "name": "김담당",
+  "email": "acme@example.com",
+  "phone": "010-2222-3333"
+}
+
+> {%
+    client.test("201 Created or 409 (already exists)", function() {
+        client.assert(
+            response.status === 201 || response.status === 409,
+            "expected 201 or 409 but got " + response.status
+        );
+    });
+%}
+
+
+### 5) PENDING 상태 로그인 시도 → 실패 확인
+### 기대: 401 AUTH_005 (보안상 LOGIN_FAILED 로 통일)
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "acme01",
+  "password": "Acme1234!"
+}
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+    client.test("code is AUTH_005", function() {
+        client.assert(response.body.code === "AUTH_005", "code mismatch: " + response.body.code);
+    });
+%}
+
+### 7) 다시 로그인 → 성공 + role=COMPANY_ADMIN 확인
+### 기대: 200, role=COMPANY_ADMIN
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "acme01",
+  "password": "Acme1234!"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(
+            response.status === 200,
+            "expected 200 but got " + response.status + " — did you run step #6 (ACTIVE 전환)?"
+        );
+    });
+    client.test("role is COMPANY_ADMIN", function() {
+        client.assert(
+            response.body.data.role === "COMPANY_ADMIN",
+            "role mismatch: " + response.body.data.role
+        );
+    });
+    client.global.set("acmeToken", response.body.data.accessToken);
+%}
+
+
+### 8) /users/me 조회 (기업 관리자 토큰)
+### 기대: 200 + 본인 정보
+GET {{baseUrl}}/api/v1/users/me
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("loginId matches", function() {
+        client.assert(response.body.data.loginId === "acme01", "loginId mismatch");
+    });
+    client.test("role is COMPANY_ADMIN", function() {
+        client.assert(response.body.data.role === "COMPANY_ADMIN", "role mismatch");
+    });
+%}
+
+
+### E1) 인증 없이 /me 접근 → 401 AUTH_002
+GET {{baseUrl}}/api/v1/users/me
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+    client.test("code is AUTH_002", function() {
+        client.assert(response.body.code === "AUTH_002", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### E2) 잘못된 토큰으로 /me 접근 → 401 AUTH_003
+GET {{baseUrl}}/api/v1/users/me
+Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.invalid.signature
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+    client.test("code is AUTH_003", function() {
+        client.assert(response.body.code === "AUTH_003", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### E3) 틀린 비밀번호 로그인 → 401 AUTH_005
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "admin",
+  "password": "wrong-password-1!"
+}
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+    client.test("code is AUTH_005", function() {
+        client.assert(response.body.code === "AUTH_005", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### E4) 약한 비밀번호로 회원가입 → 400 COMMON_001 + 필드 에러
+POST {{baseUrl}}/api/v1/auth/signup/admin
+Content-Type: application/json
+
+{
+  "loginId": "weakuser",
+  "password": "short",
+  "name": "약한 비번",
+  "email": "weak@ttait.com"
+}
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+    client.test("code is COMMON_001", function() {
+        client.assert(response.body.code === "COMMON_001", "code mismatch: " + response.body.code);
+    });
+    client.test("password field error present", function() {
+        client.assert(
+            response.body.data && response.body.data.password,
+            "expected password field error"
+        );
+    });
+%}
+
+
+### E5) loginId 중복 가입 시도 → 409 USER_002
+POST {{baseUrl}}/api/v1/auth/signup/admin
+Content-Type: application/json
+
+{
+  "loginId": "{{adminLoginId}}",
+  "password": "{{adminPassword}}",
+  "name": "중복 관리자",
+  "email": "duplicate@ttait.com"
+}
+
+> {%
+    client.test("409 Conflict", function() {
+        client.assert(response.status === 409, "expected 409 but got " + response.status);
+    });
+    client.test("code is USER_002", function() {
+        client.assert(response.body.code === "USER_002", "code mismatch: " + response.body.code);
+    });
+%}

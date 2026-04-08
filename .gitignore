@@ -1,0 +1,17 @@
+.gradle/
+build/
+out/
+.idea/
+.claude/
+*.iml
+**/.DS_Store
+uploads/
+*.log
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# IntelliJ HTTP Client private env
+http/http-client.private.env.json
