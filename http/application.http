@@ -1,0 +1,324 @@
+### AP-1) 기업 관리자 로그인 → 토큰 저장
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "acme01",
+  "password": "Acme1234!"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("role is COMPANY_ADMIN", function() {
+        client.assert(response.body.data.role === "COMPANY_ADMIN", "role mismatch");
+    });
+    client.global.set("acmeToken", response.body.data.accessToken);
+%}
+
+
+### AP-2) 신청 전 상태 조회 → agreementStatus = DRAFT, submittedAt = null
+GET {{baseUrl}}/api/v1/company-admin/applications/me
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("status is DRAFT", function() {
+        client.assert(
+            response.body.data.agreementStatus === "DRAFT",
+            "status expected DRAFT but got " + response.body.data.agreementStatus
+        );
+    });
+    client.test("submittedAt is null", function() {
+        client.assert(
+            response.body.data.submittedAt === null || response.body.data.submittedAt === undefined,
+            "submittedAt should be null"
+        );
+    });
+    client.test("files empty", function() {
+        client.assert(
+            Array.isArray(response.body.data.files) && response.body.data.files.length === 0,
+            "files should be empty array"
+        );
+    });
+%}
+
+
+### AP-3) 협약 신청 제출 (multipart/form-data + 2 files)
+POST {{baseUrl}}/api/v1/company-admin/applications
+Authorization: Bearer {{acmeToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+건설업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+200
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+서울특별시 중구 세종대로 110
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="business_registration.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/business_registration.pdf
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="partnership_proposal.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/partnership_proposal.pdf
+--WebAppBoundary--
+
+> {%
+    client.test("201 Created", function() {
+        client.assert(response.status === 201, "expected 201 but got " + response.status);
+    });
+    client.test("status is PENDING", function() {
+        client.assert(
+            response.body.data.agreementStatus === "PENDING",
+            "status expected PENDING but got " + response.body.data.agreementStatus
+        );
+    });
+    client.test("fileIds returned (2 files)", function() {
+        client.assert(
+            Array.isArray(response.body.data.fileIds) && response.body.data.fileIds.length === 2,
+            "expected 2 fileIds"
+        );
+    });
+%}
+
+
+### AP-4) 신청 후 상태 조회 → PENDING + 필드 + 파일 목록 확인
+GET {{baseUrl}}/api/v1/company-admin/applications/me
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("status is PENDING", function() {
+        client.assert(
+            response.body.data.agreementStatus === "PENDING",
+            "status expected PENDING"
+        );
+    });
+    client.test("industryType 건설업", function() {
+        client.assert(response.body.data.industryType === "건설업", "industryType mismatch");
+    });
+    client.test("employeeCount 200", function() {
+        client.assert(response.body.data.employeeCount === 200, "employeeCount mismatch");
+    });
+    client.test("address 입력값 반환", function() {
+        client.assert(
+            response.body.data.address.indexOf("세종대로") >= 0,
+            "address mismatch"
+        );
+    });
+    client.test("files 2개", function() {
+        client.assert(
+            Array.isArray(response.body.data.files) && response.body.data.files.length === 2,
+            "expected 2 files"
+        );
+    });
+    client.test("submittedAt not null", function() {
+        client.assert(
+            response.body.data.submittedAt !== null && response.body.data.submittedAt !== undefined,
+            "submittedAt should be set"
+        );
+    });
+%}
+
+
+### AP-5) 중복 제출 시도 → 409 APP_001
+POST {{baseUrl}}/api/v1/company-admin/applications
+Authorization: Bearer {{acmeToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+건설업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+200
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+서울특별시 중구
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="business_registration.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/business_registration.pdf
+--WebAppBoundary--
+
+> {%
+    client.test("409 Conflict", function() {
+        client.assert(response.status === 409, "expected 409 but got " + response.status);
+    });
+    client.test("code is APP_001", function() {
+        client.assert(response.body.code === "APP_001", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### ================================================
+### 에러 케이스
+### ================================================
+
+
+### E-1) 인증 없이 제출 → 401 AUTH_002
+POST {{baseUrl}}/api/v1/company-admin/applications
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+서비스업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+10
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+테스트
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="business_registration.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/business_registration.pdf
+--WebAppBoundary--
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+%}
+
+
+### E-2) 관리자 토큰으로 제출 → 403 (role 불일치)
+### 사전 조건: auth.http #1 이 실행되어 adminToken 이 저장돼 있어야 함
+POST {{baseUrl}}/api/v1/company-admin/applications
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+서비스업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+10
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+테스트
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="business_registration.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/business_registration.pdf
+--WebAppBoundary--
+
+> {%
+    client.test("403 Forbidden", function() {
+        client.assert(response.status === 403, "expected 403 but got " + response.status);
+    });
+%}
+
+
+### E-3) 업종 누락 → 400 COMMON_001
+POST {{baseUrl}}/api/v1/company-admin/applications
+Authorization: Bearer {{acmeToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+10
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+서울시
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="business_registration.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/business_registration.pdf
+--WebAppBoundary--
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+%}
+
+
+### E-4) 허용되지 않은 확장자 (txt) → 400 FILE_001
+POST {{baseUrl}}/api/v1/company-admin/applications
+Authorization: Bearer {{acmeToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+건설업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+200
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+서울특별시
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="bad.txt"
+Content-Type: text/plain
+
+< ./testfiles/bad.txt
+--WebAppBoundary--
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+    client.test("code is FILE_001", function() {
+        client.assert(response.body.code === "FILE_001", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### E-5) 파일 0개 → 400 COMMON_001 (DTO @Size min=1)
+POST {{baseUrl}}/api/v1/company-admin/applications
+Authorization: Bearer {{acmeToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+건설업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+200
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+서울특별시
+--WebAppBoundary--
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+%}
