@@ -17,12 +17,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 총 관리자 대시보드 응답을 조립하는 서비스 구현체.
  */
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     private final AdminDashboardMapper adminDashboardMapper;
