@@ -15,6 +15,12 @@ public enum ErrorCode {
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USER_003", "이미 사용 중인 이메일입니다."),
     INACTIVE_USER(HttpStatus.FORBIDDEN, "USER_004", "활성 상태의 사용자가 아닙니다."),
     DUPLICATE_BUSINESS_NUMBER(HttpStatus.CONFLICT, "ORG_001", "이미 등록된 사업자등록번호입니다."),
+    ORGANIZATION_NOT_FOUND(HttpStatus.NOT_FOUND, "ORG_002", "기업 정보를 찾을 수 없습니다."),
+    APPLICATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "APP_001", "이미 협약 신청이 제출되었습니다."),
+    APPLICATION_NOT_SUBMITTED(HttpStatus.NOT_FOUND, "APP_002", "아직 제출된 협약 신청이 없습니다."),
+    INVALID_FILE_EXTENSION(HttpStatus.BAD_REQUEST, "FILE_001", "허용되지 않은 파일 형식입니다. (PDF, DOCX, HWP, HWPX 만 가능)"),
+    INVALID_FILE_COUNT(HttpStatus.BAD_REQUEST, "FILE_002", "파일은 1개 이상 10개 이하로 첨부해주세요."),
+    MAX_FILE_SIZE_EXCEEDED(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_003", "파일 크기가 허용 한도를 초과했습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 내부 오류가 발생했습니다.");
 
     private final HttpStatus status;
