@@ -1,0 +1,222 @@
+### AD-0) 관리자 로그인 → adminToken 저장
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{adminLoginId}}",
+  "password": "{{adminPassword}}"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.global.set("adminToken", response.body.data.accessToken);
+%}
+
+
+### AD-1) 협약 신청 목록 조회 (전체)
+GET {{baseUrl}}/api/v1/admin/applications
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("totalCount / items 존재", function() {
+        client.assert(typeof response.body.data.totalCount === "number", "totalCount missing");
+        client.assert(Array.isArray(response.body.data.items), "items not array");
+    });
+    if (response.body.data.items.length > 0) {
+        client.global.set("firstOrgId", response.body.data.items[0].organizationId);
+        client.log("첫 번째 organizationId: " + response.body.data.items[0].organizationId);
+    }
+%}
+
+
+### AD-2) 목록 조회 - 상태 필터 (PENDING:신청 완료, 허가 전)
+GET {{baseUrl}}/api/v1/admin/applications?status=PENDING
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200);
+    });
+    client.test("all items are PENDING", function() {
+        var items = response.body.data.items;
+        for (var i = 0; i < items.length; i++) {
+            client.assert(items[i].agreementStatus === "PENDING",
+                "non-PENDING leaked: " + items[i].agreementStatus);
+        }
+    });
+%}
+
+
+### AD-3) 목록 조회 - 기업명 검색 (keyword)
+GET {{baseUrl}}/api/v1/admin/applications?keyword=에이씨엠이
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200);
+    });
+%}
+
+
+### AD-4) 목록 조회 - 페이징 (size=1)
+GET {{baseUrl}}/api/v1/admin/applications?page=1&size=1
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200);
+    });
+    client.test("page=1 size=1", function() {
+        client.assert(response.body.data.page === 1);
+        client.assert(response.body.data.size === 1);
+        client.assert(response.body.data.items.length <= 1);
+    });
+%}
+
+
+### AD-5) 상세 조회
+GET {{baseUrl}}/api/v1/admin/applications/{{firstOrgId}}
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("기업 정보 + 담당자 + 파일 목록 포함", function() {
+        var d = response.body.data;
+        client.assert(d.organizationName, "organizationName missing");
+        client.assert(d.businessNumber, "businessNumber missing");
+        client.assert(d.contactName, "contactName missing");
+        client.assert(Array.isArray(d.files), "files not array");
+    });
+    if (response.body.data.files.length > 0) {
+        client.global.set("firstFileId", response.body.data.files[0].id);
+    }
+%}
+
+
+### AD-6) 첨부 파일 다운로드
+GET {{baseUrl}}/api/v1/admin/applications/{{firstOrgId}}/files/{{firstFileId}}/download
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("Content-Disposition attachment", function() {
+        var cd = response.headers.valueOf("Content-Disposition");
+        client.assert(cd && cd.indexOf("attachment") >= 0, "not attachment: " + cd);
+    });
+%}
+
+
+### AD-7) 승인 처리-> status=ACTIVE, approvedAt 채워짐 확인
+POST {{baseUrl}}/api/v1/admin/applications/{{firstOrgId}}/approve
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("status ACTIVE", function() {
+        client.assert(response.body.data.agreementStatus === "ACTIVE",
+            "expected ACTIVE but got " + response.body.data.agreementStatus);
+    });
+    client.test("approvedAt not null", function() {
+        client.assert(response.body.data.approvedAt, "approvedAt missing");
+    });
+%}
+
+
+### AD-8) 이미 승인된 상태에서 다시 승인 시도 → 400 APP_003
+POST {{baseUrl}}/api/v1/admin/applications/{{firstOrgId}}/approve
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+    client.test("code APP_003", function() {
+        client.assert(response.body.code === "APP_003", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### AD-9) 이미 승인된 상태에서 반려 시도 -> 400 APP_003
+POST {{baseUrl}}/api/v1/admin/applications/{{firstOrgId}}/reject
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reviewComment": "이미 승인된 상태라 반려 불가"
+}
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+    client.test("code APP_003", function() {
+        client.assert(response.body.code === "APP_003");
+    });
+%}
+
+
+### ================================================
+### 에러 케이스
+### ================================================
+
+
+### EAD-1) 기업 관리자 토큰으로 목록 접근 → 403
+### 사전 조건: application.http 의 AP-1 실행해서 acmeToken 저장
+GET {{baseUrl}}/api/v1/admin/applications
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("403 Forbidden", function() {
+        client.assert(response.status === 403, "expected 403 but got " + response.status);
+    });
+%}
+
+
+### EAD-2) 인증 없이 목록 접근 → 401
+GET {{baseUrl}}/api/v1/admin/applications
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+%}
+
+
+### EAD-3) 존재하지 않는 organizationId 상세 조회 → 404 APP_002
+GET {{baseUrl}}/api/v1/admin/applications/999999
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("404 Not Found", function() {
+        client.assert(response.status === 404, "expected 404 but got " + response.status);
+    });
+    client.test("code APP_002", function() {
+        client.assert(response.body.code === "APP_002");
+    });
+%}
+
+
+### EAD-4) 반려 사유 누락 -> 400 COMMON_001
+POST {{baseUrl}}/api/v1/admin/applications/{{firstOrgId}}/reject
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+}
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400);
+    });
+%}

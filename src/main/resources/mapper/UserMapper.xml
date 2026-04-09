@@ -52,6 +52,15 @@
         WHERE email = #{email}
     </select>
 
+    <!-- 특정 기업의 담당자(기업 관리자) 조회 -->
+    <select id="findByOrganizationId" parameterType="long" resultMap="userResultMap">
+        SELECT <include refid="userColumns"/>
+        FROM t_user
+        WHERE organization_id = #{organizationId}
+          AND role = 'COMPANY_ADMIN'
+        FETCH FIRST 1 ROWS ONLY
+    </select>
+
     <insert id="insert" parameterType="com.ttait.domain.user.domain.User">
         <selectKey keyProperty="id" resultType="long" order="BEFORE">
             SELECT user_seq.NEXTVAL FROM dual

@@ -13,6 +13,9 @@ public interface UserMapper {
 
     User findByEmail(@Param("email") String email);
 
+    // 특정 기업의 담당자(기업 관리자) 조회
+    User findByOrganizationId(@Param("organizationId") Long organizationId);
+
     int insert(User user);
 
     int updateLastLoginAt(@Param("id") Long id);
