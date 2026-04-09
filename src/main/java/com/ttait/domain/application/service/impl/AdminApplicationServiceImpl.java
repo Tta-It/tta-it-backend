@@ -8,6 +8,8 @@ import com.ttait.domain.application.dto.response.ApplicationFileResponse;
 import com.ttait.domain.application.dto.response.ApplicationReviewResponse;
 import com.ttait.domain.application.mapper.ApplicationFileMapper;
 import com.ttait.domain.application.service.AdminApplicationService;
+import com.ttait.domain.notification.event.ApplicationApprovedEvent;
+import com.ttait.domain.notification.event.ApplicationRejectedEvent;
 import com.ttait.domain.organization.domain.AgreementStatus;
 import com.ttait.domain.organization.domain.Organization;
 import com.ttait.domain.organization.mapper.OrganizationMapper;
@@ -20,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +42,7 @@ public class AdminApplicationServiceImpl implements AdminApplicationService {
     private final ApplicationFileMapper applicationFileMapper;
     private final UserMapper userMapper;
     private final FileStorageService fileStorageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -123,6 +127,12 @@ public class AdminApplicationServiceImpl implements AdminApplicationService {
         Organization refreshed = organizationMapper.findById(organizationId);
         log.info("[ADMIN-REVIEW] approved — orgId={}", organizationId);
 
+        // 실시간 알림 이벤트 발행 (AFTER_COMMIT 리스너가 기업 관리자에게 WebSocket push)
+        eventPublisher.publishEvent(new ApplicationApprovedEvent(
+                refreshed.getId(),
+                refreshed.getOrganizationName()
+        ));
+
         return new ApplicationReviewResponse(
                 refreshed.getId(),
                 refreshed.getAgreementStatus(),
@@ -147,6 +157,13 @@ public class AdminApplicationServiceImpl implements AdminApplicationService {
 
         Organization refreshed = organizationMapper.findById(organizationId);
         log.info("[ADMIN-REVIEW] rejected — orgId={}", organizationId);
+
+        // 실시간 알림 이벤트 발행 (AFTER_COMMIT 리스너가 기업 관리자에게 WebSocket push, 반려 사유 포함)
+        eventPublisher.publishEvent(new ApplicationRejectedEvent(
+                refreshed.getId(),
+                refreshed.getOrganizationName(),
+                refreshed.getReviewComment()
+        ));
 
         return new ApplicationReviewResponse(
                 refreshed.getId(),
