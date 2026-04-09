@@ -22,14 +22,15 @@ public class Organization extends BaseEntity {
     private String contactEmail;
     private String contactPhone;
     private AgreementStatus agreementStatus;
-    private LocalDateTime submittedAt;  // 협약 신청서 제출 시각 (이후 PENDIND 처리)
+    private LocalDateTime submittedAt;  // 협약 신청서 제출 시각 (이후 PENDING 처리)
     private LocalDateTime approvedAt;
+    private String reviewComment;       // 반려 시 관리자가 남기는 사유
 
     @Builder
     public Organization(Long id, String organizationName, String businessNumber, String industryType,
                         Integer employeeCount, String address, String contactName, String contactEmail,
                         String contactPhone, AgreementStatus agreementStatus,
-                        LocalDateTime submittedAt, LocalDateTime approvedAt) {
+                        LocalDateTime submittedAt, LocalDateTime approvedAt, String reviewComment) {
         this.id = id;
         this.organizationName = organizationName;
         this.businessNumber = businessNumber;
@@ -42,5 +43,6 @@ public class Organization extends BaseEntity {
         this.agreementStatus = agreementStatus;
         this.submittedAt = submittedAt;
         this.approvedAt = approvedAt;
+        this.reviewComment = reviewComment;
     }
 }
