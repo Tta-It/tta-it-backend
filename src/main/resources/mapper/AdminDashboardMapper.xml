@@ -4,5 +4,143 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ttait.domain.admindashboard.mapper.AdminDashboardMapper">
 
-    <!-- 대시보드 집계 SQL은 T_STATION / T_STATION_USAGE_STAT 구조 확정 후 추가한다. -->
+    <!--
+      배치 검토 후보 기준:
+      1) 현재 기간 이용량이 10건 이상
+      2) 직전 동일 기간 대비 10% 이상 증가
+    -->
+    <sql id="priorityCandidatesCte">
+        WITH current_station_usage AS (
+            SELECT
+                u.station_code,
+                MAX(s.station_name) AS station_name,
+                SUM(u.usage_count) AS current_usage
+            FROM t_station_usage_stat u
+            JOIN t_station s ON s.station_code = u.station_code
+            WHERE u.stat_date BETWEEN #{from} AND #{to}
+            GROUP BY u.station_code
+        ),
+        previous_station_usage AS (
+            SELECT
+                u.station_code,
+                SUM(u.usage_count) AS previous_usage
+            FROM t_station_usage_stat u
+            WHERE u.stat_date BETWEEN #{previousFrom} AND #{previousTo}
+            GROUP BY u.station_code
+        ),
+        priority_candidates AS (
+            SELECT
+                c.station_code,
+                c.station_name,
+                c.current_usage,
+                NVL(p.previous_usage, 0) AS previous_usage,
+                CASE
+                    WHEN NVL(p.previous_usage, 0) = 0 AND c.current_usage > 0 THEN 100
+                    WHEN NVL(p.previous_usage, 0) = 0 THEN 0
+                    ELSE ROUND(((c.current_usage - p.previous_usage) / p.previous_usage) * 100, 1)
+                END AS usage_growth_rate
+            FROM current_station_usage c
+            LEFT JOIN previous_station_usage p ON p.station_code = c.station_code
+            WHERE c.current_usage >= 10
+              AND (
+                    NVL(p.previous_usage, 0) = 0
+                    OR c.current_usage >= p.previous_usage * 1.1
+              )
+        )
+    </sql>
+
+    <!-- KPI: 기간 내 전체 이용량 -->
+    <select id="findTotalUsageCount" resultType="long">
+        SELECT NVL(SUM(usage_count), 0)
+        FROM t_station_usage_stat
+        WHERE stat_date BETWEEN #{from} AND #{to}
+    </select>
+
+    <!-- KPI: 대기 중 협약 신청 수 -->
+    <select id="countPendingApplications" resultType="int">
+        SELECT COUNT(*)
+        FROM t_organization
+        WHERE agreement_status = 'PENDING'
+    </select>
+
+    <!-- KPI: 배치 검토 필요 지역 수 -->
+    <select id="countPriorityRegions" resultType="int">
+        <include refid="priorityCandidatesCte"/>
+        SELECT COUNT(*)
+        FROM priority_candidates
+    </select>
+
+    <!-- 차트: 자치구별 이용량 -->
+    <select id="findRegionUsages" resultType="com.ttait.domain.admindashboard.dto.response.AdminRegionUsageResponse">
+        SELECT
+            NVL(s.district_name, '미분류') AS region_name,
+            SUM(u.usage_count) AS usage_count
+        FROM t_station_usage_stat u
+        JOIN t_station s ON s.station_code = u.station_code
+        WHERE u.stat_date BETWEEN #{from} AND #{to}
+        GROUP BY NVL(s.district_name, '미분류')
+        ORDER BY usage_count DESC, region_name ASC
+    </select>
+
+    <!-- 차트: 일자별 이용량 추이 -->
+    <select id="findUsageTrends" resultType="com.ttait.domain.admindashboard.dto.response.AdminUsageTrendResponse">
+        SELECT
+            stat_date,
+            SUM(usage_count) AS usage_count
+        FROM t_station_usage_stat
+        WHERE stat_date BETWEEN #{from} AND #{to}
+        GROUP BY stat_date
+        ORDER BY stat_date ASC
+    </select>
+
+    <!-- 목록: 수요 상위 지역 TOP 5 -->
+    <select id="findTopRegions" resultType="com.ttait.domain.admindashboard.dto.response.AdminTopRegionResponse">
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY usage_count DESC, region_name ASC) AS rank,
+            region_name,
+            usage_count,
+            CAST(NULL AS NUMBER(12, 1)) AS usage_growth_rate
+        FROM (
+            SELECT
+                NVL(s.district_name, '미분류') AS region_name,
+                SUM(u.usage_count) AS usage_count
+            FROM t_station_usage_stat u
+            JOIN t_station s ON s.station_code = u.station_code
+            WHERE u.stat_date BETWEEN #{from} AND #{to}
+            GROUP BY NVL(s.district_name, '미분류')
+        )
+        ORDER BY usage_count DESC, region_name ASC
+        FETCH FIRST 5 ROWS ONLY
+    </select>
+
+    <!-- 목록: 배치 우선 검토 지역 TOP 5 -->
+    <select id="findPriorityRegions" resultType="com.ttait.domain.admindashboard.dto.response.AdminPriorityRegionResponse">
+        <include refid="priorityCandidatesCte"/>
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY current_usage DESC, station_name ASC) AS rank,
+            station_name,
+            usage_growth_rate,
+            CASE
+                WHEN usage_growth_rate >= 20 THEN 'REVIEW_REQUIRED'
+                ELSE 'MONITOR'
+            END AS review_status
+        FROM priority_candidates
+        ORDER BY current_usage DESC, station_name ASC
+        FETCH FIRST 5 ROWS ONLY
+    </select>
+
+    <!-- 목록: 최근 대기 중 협약 신청 현황 -->
+    <select id="findPendingApplications"
+            resultType="com.ttait.domain.admindashboard.dto.response.AdminPendingApplicationResponse">
+        SELECT
+            organization_name,
+            contact_name AS manager_name,
+            CAST(submitted_at AS DATE) AS requested_date,
+            agreement_status AS status,
+            address AS area_name
+        FROM t_organization
+        WHERE agreement_status = 'PENDING'
+        ORDER BY submitted_at DESC NULLS LAST, id DESC
+        FETCH FIRST 5 ROWS ONLY
+    </select>
 </mapper>
