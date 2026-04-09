@@ -10,6 +10,9 @@ import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+/**
+ * 총 관리자 대시보드 화면별 집계 조회를 담당하는 MyBatis 매퍼.
+ */
 @Mapper
 public interface AdminDashboardMapper {
 

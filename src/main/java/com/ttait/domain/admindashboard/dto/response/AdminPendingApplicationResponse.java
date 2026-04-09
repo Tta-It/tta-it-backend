@@ -4,6 +4,9 @@ import java.time.LocalDate;
 import lombok.Builder;
 import lombok.Getter;
 
+/**
+ * 추후 협약 신청 현황 영역에 사용할 데이터.
+ */
 @Getter
 @Builder
 public class AdminPendingApplicationResponse {

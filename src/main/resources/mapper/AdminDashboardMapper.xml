@@ -4,4 +4,5 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ttait.domain.admindashboard.mapper.AdminDashboardMapper">
 
+    <!-- 대시보드 집계 SQL은 T_STATION / T_STATION_USAGE_STAT 구조 확정 후 추가한다. -->
 </mapper>

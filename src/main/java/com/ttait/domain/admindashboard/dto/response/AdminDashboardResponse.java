@@ -4,6 +4,9 @@ import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
+/**
+ * 총 관리자 대시보드 전체 화면 데이터를 묶는 응답 객체.
+ */
 @Getter
 @Builder
 public class AdminDashboardResponse {
