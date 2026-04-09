@@ -67,7 +67,7 @@ Content-Type: application/json
 
 
 ### 4) 기업 관리자 회원가입 (acme01)
-### 기대: 201 + userId, status=PENDING 으로 생성 → 아직 로그인 불가
+### 기대: 201 + userId, status=PENDING 으로 생성 + T_ORGANIZATION row 자동 생성
 POST {{baseUrl}}/api/v1/auth/signup/company-admin
 Content-Type: application/json
 
@@ -76,7 +76,9 @@ Content-Type: application/json
   "password": "Acme1234!",
   "name": "김담당",
   "email": "acme@example.com",
-  "phone": "010-2222-3333"
+  "phone": "010-2222-3333",
+  "organizationName": "에이씨엠이 주식회사",
+  "businessNumber": "123-45-67890"
 }
 
 > {%
@@ -243,5 +245,57 @@ Content-Type: application/json
     });
     client.test("code is USER_002", function() {
         client.assert(response.body.code === "USER_002", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### E6) 사업자번호 중복 가입 시도 → 409 ORG_001
+### (#4 를 먼저 실행해서 acme01 이 존재해야 함)
+POST {{baseUrl}}/api/v1/auth/signup/company-admin
+Content-Type: application/json
+
+{
+  "loginId": "acme02",
+  "password": "Acme5678!",
+  "name": "다른담당",
+  "email": "acme2@example.com",
+  "phone": "010-3333-4444",
+  "organizationName": "에이씨엠이 주식회사",
+  "businessNumber": "123-45-67890"
+}
+
+> {%
+    client.test("409 Conflict", function() {
+        client.assert(response.status === 409, "expected 409 but got " + response.status);
+    });
+    client.test("code is ORG_001", function() {
+        client.assert(response.body.code === "ORG_001", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### E7) 사업자번호 포맷 오류 → 400 COMMON_001
+POST {{baseUrl}}/api/v1/auth/signup/company-admin
+Content-Type: application/json
+
+{
+  "loginId": "badorg",
+  "password": "BadOrg12!",
+  "name": "형식틀림",
+  "email": "badorg@example.com",
+  "phone": "010-5555-6666",
+  "organizationName": "이상한회사",
+  "businessNumber": "abc-def-ghi"
+}
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+    client.test("businessNumber field error present", function() {
+        client.assert(
+            response.body.data && response.body.data.businessNumber,
+            "expected businessNumber field error"
+        );
     });
 %}

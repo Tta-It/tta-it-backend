@@ -14,6 +14,7 @@ public enum ErrorCode {
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "USER_002", "이미 사용 중인 로그인 아이디입니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USER_003", "이미 사용 중인 이메일입니다."),
     INACTIVE_USER(HttpStatus.FORBIDDEN, "USER_004", "활성 상태의 사용자가 아닙니다."),
+    DUPLICATE_BUSINESS_NUMBER(HttpStatus.CONFLICT, "ORG_001", "이미 등록된 사업자등록번호입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 내부 오류가 발생했습니다.");
 
     private final HttpStatus status;

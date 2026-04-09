@@ -1,14 +1,15 @@
 package com.ttait.domain.auth.service;
 
+import com.ttait.domain.auth.dto.request.AdminSignUpRequest;
+import com.ttait.domain.auth.dto.request.CompanyAdminSignUpRequest;
 import com.ttait.domain.auth.dto.request.LoginRequest;
-import com.ttait.domain.auth.dto.request.SignUpRequest;
-import com.ttait.domain.auth.dto.response.TokenResponse;
+import com.ttait.domain.auth.dto.response.LoginResponse;
 
 public interface AuthService {
 
-    Long signUpAdmin(SignUpRequest request);
+    Long signUpAdmin(AdminSignUpRequest request);
 
-    Long signUpCompanyAdmin(SignUpRequest request);
+    Long signUpCompanyAdmin(CompanyAdminSignUpRequest request);
 
-    TokenResponse login(LoginRequest request);
+    LoginResponse login(LoginRequest request);
 }
