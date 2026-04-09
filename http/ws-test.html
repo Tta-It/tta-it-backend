@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>TtaIt WebSocket 알림 테스트</title>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            max-width: 720px;
+            margin: 40px auto;
+            padding: 20px;
+            color: #222;
+        }
+        h1 { margin-top: 0; }
+        .row { margin-bottom: 12px; }
+        label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+        input[type=text], input[type=password] {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 14px;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            background: #2d3748;
+            color: white;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        button:disabled { background: #cbd5e0; cursor: not-allowed; }
+        .status {
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            display: inline-block;
+            margin-left: 8px;
+        }
+        .status.connected { background: #c6f6d5; color: #22543d; }
+        .status.disconnected { background: #fed7d7; color: #742a2a; }
+        .notifications {
+            margin-top: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 16px;
+            min-height: 200px;
+            background: #fafafa;
+        }
+        .notif {
+            background: white;
+            border-left: 4px solid #4299e1;
+            padding: 10px 14px;
+            margin-bottom: 10px;
+            border-radius: 3px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .notif .type {
+            font-size: 11px;
+            font-weight: 600;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .notif .title { font-weight: 600; margin: 4px 0; }
+        .notif .content { color: #4a5568; font-size: 14px; }
+        .notif .meta { font-size: 11px; color: #a0aec0; margin-top: 6px; }
+        .notif.approved { border-left-color: #48bb78; }
+        .notif.rejected { border-left-color: #f56565; }
+    </style>
+</head>
+<body>
+    <h1>TtaIt WebSocket 알림 테스트 <span id="status" class="status disconnected">disconnected</span></h1>
+
+    <div class="row">
+        <label>Base URL</label>
+        <input type="text" id="baseUrl" value="ws://localhost:8080/ws">
+    </div>
+
+    <div class="row">
+        <label>Access Token (JWT) — /api/v1/auth/login 응답의 accessToken</label>
+        <input type="password" id="token" placeholder="eyJhbGciOiJIUzUxMiJ9...">
+    </div>
+
+    <div class="row">
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn" disabled>Disconnect</button>
+        <button id="clearBtn">Clear log</button>
+    </div>
+
+    <div class="notifications" id="notifications">
+        <div style="color: #a0aec0; text-align: center; padding: 40px 0;">
+            연결 후 수신된 알림이 여기에 표시됩니다.
+        </div>
+    </div>
+
+    <script>
+        let client = null;
+        const statusEl = document.getElementById('status');
+        const notifEl = document.getElementById('notifications');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const clearBtn = document.getElementById('clearBtn');
+
+        function setStatus(connected) {
+            statusEl.textContent = connected ? 'connected' : 'disconnected';
+            statusEl.className = 'status ' + (connected ? 'connected' : 'disconnected');
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+        }
+
+        function addNotification(payload) {
+            // placeholder 제거
+            if (notifEl.querySelector('div[style*="center"]')) {
+                notifEl.innerHTML = '';
+            }
+
+            const el = document.createElement('div');
+            const cls = payload.type && payload.type.includes('APPROVED') ? 'approved'
+                      : payload.type && payload.type.includes('REJECTED') ? 'rejected'
+                      : '';
+            el.className = 'notif ' + cls;
+            el.innerHTML = `
+                <div class="type">${payload.type || 'UNKNOWN'}</div>
+                <div class="title">${payload.title || ''}</div>
+                <div class="content">${payload.content || ''}</div>
+                <div class="meta">targetId=${payload.targetId} · ${payload.sentAt || new Date().toISOString()}</div>
+            `;
+            notifEl.insertBefore(el, notifEl.firstChild);
+        }
+
+        connectBtn.addEventListener('click', () => {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const token = document.getElementById('token').value.trim();
+
+            if (!token) {
+                alert('Access Token 을 입력하세요.');
+                return;
+            }
+
+            client = new StompJs.Client({
+                brokerURL: baseUrl,
+                connectHeaders: {
+                    'Authorization': 'Bearer ' + token
+                },
+                reconnectDelay: 0,           // 테스트 중 자동 재연결 비활성화
+                heartbeatIncoming: 10000,
+                heartbeatOutgoing: 10000,
+                debug: (msg) => console.log('[STOMP]', msg)
+            });
+
+            client.onConnect = (frame) => {
+                console.log('[WS] connected', frame);
+                setStatus(true);
+
+                client.subscribe('/user/queue/notifications', (message) => {
+                    try {
+                        const payload = JSON.parse(message.body);
+                        console.log('[WS] notification received', payload);
+                        addNotification(payload);
+                    } catch (e) {
+                        console.error('[WS] parse error', e, message.body);
+                    }
+                });
+            };
+
+            client.onStompError = (frame) => {
+                console.error('[WS] STOMP error', frame.headers['message'], frame.body);
+                alert('STOMP error: ' + frame.headers['message']);
+                setStatus(false);
+            };
+
+            client.onWebSocketClose = (event) => {
+                console.log('[WS] closed', event);
+                setStatus(false);
+            };
+
+            client.activate();
+        });
+
+        disconnectBtn.addEventListener('click', () => {
+            if (client) {
+                client.deactivate();
+                client = null;
+            }
+            setStatus(false);
+        });
+
+        clearBtn.addEventListener('click', () => {
+            notifEl.innerHTML = '<div style="color: #a0aec0; text-align: center; padding: 40px 0;">연결 후 수신된 알림이 여기에 표시됩니다.</div>';
+        });
+    </script>
+</body>
+</html>
