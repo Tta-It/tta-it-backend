@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ttait.domain.organization.mapper.OrganizationMapper">
+
+    <resultMap id="organizationResultMap" type="com.ttait.domain.organization.domain.Organization">
+        <id property="id" column="id"/>
+        <result property="organizationName" column="organization_name"/>
+        <result property="businessNumber" column="business_number"/>
+        <result property="industryType" column="industry_type"/>
+        <result property="employeeCount" column="employee_count"/>
+        <result property="address" column="address"/>
+        <result property="contactName" column="contact_name"/>
+        <result property="contactEmail" column="contact_email"/>
+        <result property="contactPhone" column="contact_phone"/>
+        <result property="agreementStatus" column="agreement_status"
+                javaType="com.ttait.domain.organization.domain.AgreementStatus"/>
+        <result property="approvedAt" column="approved_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="organizationColumns">
+        id,
+        organization_name,
+        business_number,
+        industry_type,
+        employee_count,
+        address,
+        contact_name,
+        contact_email,
+        contact_phone,
+        agreement_status,
+        approved_at,
+        created_at,
+        updated_at
+    </sql>
+
+    <select id="findById" parameterType="long" resultMap="organizationResultMap">
+        SELECT <include refid="organizationColumns"/>
+        FROM t_organization
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByBusinessNumber" parameterType="string" resultMap="organizationResultMap">
+        SELECT <include refid="organizationColumns"/>
+        FROM t_organization
+        WHERE business_number = #{businessNumber}
+    </select>
+
+    <insert id="insert" parameterType="com.ttait.domain.organization.domain.Organization">
+        <selectKey keyProperty="id" resultType="long" order="BEFORE">
+            SELECT organization_seq.NEXTVAL FROM dual
+        </selectKey>
+        INSERT INTO t_organization (
+            id,
+            organization_name,
+            business_number,
+            industry_type,
+            employee_count,
+            address,
+            contact_name,
+            contact_email,
+            contact_phone,
+            agreement_status,
+            approved_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{id},
+            #{organizationName},
+            #{businessNumber},
+            #{industryType},
+            #{employeeCount},
+            #{address},
+            #{contactName},
+            #{contactEmail},
+            #{contactPhone},
+            #{agreementStatus},
+            #{approvedAt},
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        )
+    </insert>
+</mapper>

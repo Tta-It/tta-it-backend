@@ -1,9 +1,13 @@
 package com.ttait.domain.auth.service.impl;
 
+import com.ttait.domain.auth.dto.request.AdminSignUpRequest;
+import com.ttait.domain.auth.dto.request.CompanyAdminSignUpRequest;
 import com.ttait.domain.auth.dto.request.LoginRequest;
-import com.ttait.domain.auth.dto.request.SignUpRequest;
-import com.ttait.domain.auth.dto.response.TokenResponse;
+import com.ttait.domain.auth.dto.response.LoginResponse;
 import com.ttait.domain.auth.service.AuthService;
+import com.ttait.domain.organization.domain.AgreementStatus;
+import com.ttait.domain.organization.domain.Organization;
+import com.ttait.domain.organization.mapper.OrganizationMapper;
 import com.ttait.domain.user.domain.RoleType;
 import com.ttait.domain.user.domain.User;
 import com.ttait.domain.user.domain.UserStatus;
@@ -11,7 +15,6 @@ import com.ttait.domain.user.mapper.UserMapper;
 import com.ttait.global.exception.BusinessException;
 import com.ttait.global.exception.ErrorCode;
 import com.ttait.global.security.CustomUserPrincipal;
-import com.ttait.global.security.JwtProperties;
 import com.ttait.global.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,25 +30,67 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthServiceImpl implements AuthService {
 
     private final UserMapper userMapper;
+    private final OrganizationMapper organizationMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
-    private final JwtProperties jwtProperties;
 
     @Override
     @Transactional
-    public Long signUpAdmin(SignUpRequest request) {
-        return signUp(request, RoleType.ADMIN, UserStatus.ACTIVE);
+    public Long signUpAdmin(AdminSignUpRequest request) {
+        validateUserDuplicate(request.loginId(), request.email());
+
+        User user = User.builder()
+                .loginId(request.loginId())
+                .password(passwordEncoder.encode(request.password()))
+                .name(request.name())
+                .email(request.email())
+                .phone(request.phone())
+                .role(RoleType.ADMIN)
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        userMapper.insert(user);
+        return user.getId();
     }
 
     @Override
     @Transactional
-    public Long signUpCompanyAdmin(SignUpRequest request) {
-        return signUp(request, RoleType.COMPANY_ADMIN, UserStatus.PENDING);
+    public Long signUpCompanyAdmin(CompanyAdminSignUpRequest request) {
+        validateUserDuplicate(request.loginId(), request.email());
+
+        String normalizedBusinessNumber = normalizeBusinessNumber(request.businessNumber());
+        if (organizationMapper.findByBusinessNumber(normalizedBusinessNumber) != null) {
+            throw new BusinessException(ErrorCode.DUPLICATE_BUSINESS_NUMBER);
+        }
+
+        Organization organization = Organization.builder()
+                .organizationName(request.organizationName())
+                .businessNumber(normalizedBusinessNumber)
+                .contactName(request.name())
+                .contactEmail(request.email())
+                .contactPhone(request.phone())
+                .agreementStatus(AgreementStatus.PENDING)
+                .build();
+        organizationMapper.insert(organization);
+
+        User user = User.builder()
+                .organizationId(organization.getId())
+                .loginId(request.loginId())
+                .password(passwordEncoder.encode(request.password()))
+                .name(request.name())
+                .email(request.email())
+                .phone(request.phone())
+                .role(RoleType.COMPANY_ADMIN)
+                .status(UserStatus.PENDING)
+                .build();
+        userMapper.insert(user);
+
+        return user.getId();
     }
 
     @Override
-    public TokenResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.loginId(), request.password()));
@@ -55,10 +100,8 @@ public class AuthServiceImpl implements AuthService {
             String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getLoginId(), user.getRole());
             userMapper.updateLastLoginAt(user.getId());
 
-            return new TokenResponse(
-                    "Bearer",
+            return new LoginResponse(
                     accessToken,
-                    jwtProperties.accessTokenValiditySeconds(),
                     user.getId(),
                     user.getLoginId(),
                     user.getRole()
@@ -70,29 +113,16 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private Long signUp(SignUpRequest request, RoleType role, UserStatus status) {
-        validateDuplicate(request);
-
-        User user = User.builder()
-                .loginId(request.loginId())
-                .password(passwordEncoder.encode(request.password()))
-                .name(request.name())
-                .email(request.email())
-                .phone(request.phone())
-                .role(role)
-                .status(status)
-                .build();
-
-        userMapper.insert(user);
-        return user.getId();
-    }
-
-    private void validateDuplicate(SignUpRequest request) {
-        if (userMapper.findByLoginId(request.loginId()) != null) {
+    private void validateUserDuplicate(String loginId, String email) {
+        if (userMapper.findByLoginId(loginId) != null) {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
-        if (userMapper.findByEmail(request.email()) != null) {
+        if (userMapper.findByEmail(email) != null) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
+    }
+
+    private String normalizeBusinessNumber(String businessNumber) {
+        return businessNumber == null ? null : businessNumber.replace("-", "");
     }
 }
