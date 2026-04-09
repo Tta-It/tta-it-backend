@@ -7,6 +7,7 @@ import com.ttait.domain.application.dto.response.MyApplicationResponse;
 import com.ttait.domain.application.dto.response.SubmitApplicationResponse;
 import com.ttait.domain.application.mapper.ApplicationFileMapper;
 import com.ttait.domain.application.service.ApplicationService;
+import com.ttait.domain.notification.event.ApplicationSubmittedEvent;
 import com.ttait.domain.organization.domain.AgreementStatus;
 import com.ttait.domain.organization.domain.Organization;
 import com.ttait.domain.organization.mapper.OrganizationMapper;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +44,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final OrganizationMapper organizationMapper;
     private final ApplicationFileMapper applicationFileMapper;
     private final FileStorageService fileStorageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -90,6 +93,14 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         log.info("[APPLICATION] submitted — userId={}, orgId={}, files={}",
                 userId, organization.getId(), savedFileIds.size());
+
+        // 실시간 알림 이벤트 발행 (AFTER_COMMIT 리스너가 WebSocket 으로 push)
+        // 현재 트랜잭션이 커밋된 후에만 관리자에게 알림 전송
+        eventPublisher.publishEvent(new ApplicationSubmittedEvent(
+                refreshed.getId(),
+                refreshed.getOrganizationName(),
+                userId
+        ));
 
         return new SubmitApplicationResponse(
                 refreshed.getId(),

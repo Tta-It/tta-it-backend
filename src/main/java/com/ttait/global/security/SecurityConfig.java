@@ -44,7 +44,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/actuator/health").permitAll()
+                        .requestMatchers("/api/v1/auth/**", "/actuator/health", "/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/company-admin/**").hasRole("COMPANY_ADMIN")
@@ -76,7 +76,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173"));
+        // 로컬 개발 포트 wildcard로 허용 (IntelliJ 빌트인 정적 서버 63343, Vite 5173, CRA 3000, 기타 임의 포트 포함)
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
