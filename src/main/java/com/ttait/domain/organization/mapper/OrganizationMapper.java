@@ -12,4 +12,6 @@ public interface OrganizationMapper {
     Organization findByBusinessNumber(@Param("businessNumber") String businessNumber);
 
     int insert(Organization organization);
+
+    int updateApplicationSubmission(Organization organization); // 협약서 제출
 }

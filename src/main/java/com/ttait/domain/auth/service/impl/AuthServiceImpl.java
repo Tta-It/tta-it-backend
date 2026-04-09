@@ -64,16 +64,18 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ErrorCode.DUPLICATE_BUSINESS_NUMBER);
         }
 
+        // 회원가입 시점의 기업은 DRAFT(협약 신청 이전) 상태로 생성
         Organization organization = Organization.builder()
                 .organizationName(request.organizationName())
                 .businessNumber(normalizedBusinessNumber)
                 .contactName(request.name())
                 .contactEmail(request.email())
                 .contactPhone(request.phone())
-                .agreementStatus(AgreementStatus.PENDING)
+                .agreementStatus(AgreementStatus.DRAFT)
                 .build();
         organizationMapper.insert(organization);
 
+        // 기업 관리자 계정은 가입 직후 즉시 로그인 가능
         User user = User.builder()
                 .organizationId(organization.getId())
                 .loginId(request.loginId())
@@ -82,7 +84,7 @@ public class AuthServiceImpl implements AuthService {
                 .email(request.email())
                 .phone(request.phone())
                 .role(RoleType.COMPANY_ADMIN)
-                .status(UserStatus.PENDING)
+                .status(UserStatus.ACTIVE)
                 .build();
         userMapper.insert(user);
 

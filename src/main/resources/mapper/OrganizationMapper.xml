@@ -16,6 +16,7 @@
         <result property="contactPhone" column="contact_phone"/>
         <result property="agreementStatus" column="agreement_status"
                 javaType="com.ttait.domain.organization.domain.AgreementStatus"/>
+        <result property="submittedAt" column="submitted_at"/>
         <result property="approvedAt" column="approved_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -32,6 +33,7 @@
         contact_email,
         contact_phone,
         agreement_status,
+        submitted_at,
         approved_at,
         created_at,
         updated_at
@@ -64,6 +66,7 @@
             contact_email,
             contact_phone,
             agreement_status,
+            submitted_at,
             approved_at,
             created_at,
             updated_at
@@ -78,9 +81,25 @@
             #{contactEmail},
             #{contactPhone},
             #{agreementStatus},
+            #{submittedAt},
             #{approvedAt},
             SYSTIMESTAMP,
             SYSTIMESTAMP
         )
     </insert>
+
+    <!--
+      협약 신청 제출 시 실행시 상태(DRAFT -> PENDING) 변경, 제출 시각 기록
+    -->
+    <update id="updateApplicationSubmission" parameterType="com.ttait.domain.organization.domain.Organization">
+        UPDATE t_organization
+        SET
+            industry_type = #{industryType},
+            employee_count = #{employeeCount},
+            address = #{address},
+            agreement_status = #{agreementStatus},
+            submitted_at = SYSTIMESTAMP,
+            updated_at = SYSTIMESTAMP
+        WHERE id = #{id}
+    </update>
 </mapper>

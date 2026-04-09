@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 public class CustomUserPrincipal implements UserDetails {
 
     private final Long id;
+    private final Long organizationId;
     private final String loginId;
     private final String password;
     private final RoleType role;
@@ -20,6 +21,7 @@ public class CustomUserPrincipal implements UserDetails {
 
     public CustomUserPrincipal(User user) {
         this.id = user.getId();
+        this.organizationId = user.getOrganizationId();
         this.loginId = user.getLoginId();
         this.password = user.getPassword();
         this.role = user.getRole();
