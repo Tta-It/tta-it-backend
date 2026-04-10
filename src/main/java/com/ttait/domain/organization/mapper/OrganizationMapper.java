@@ -41,4 +41,7 @@ public interface OrganizationMapper {
 
     // 반려: PENDING -> REJECTED, review_comment 저장
     int rejectApplication(@Param("id") Long id, @Param("reviewComment") String reviewComment);
+
+    // 재신청: REJECTED -> PENDING, 제출 정보 갱신, submitted_at 갱신 및 review_comment/approved_at 리셋
+    int resubmitApplication(Organization organization);
 }

@@ -167,4 +167,20 @@
         WHERE id = #{id}
           AND agreement_status = 'PENDING'
     </update>
+
+    <!-- 재신청: REJECTED -> PENDING, 제출 정보 갱신 + submitted_at 갱신 + review_comment/approved_at 리셋 -->
+    <update id="resubmitApplication" parameterType="com.ttait.domain.organization.domain.Organization">
+        UPDATE t_organization
+        SET
+            industry_type = #{industryType},
+            employee_count = #{employeeCount},
+            address = #{address},
+            agreement_status = 'PENDING',
+            submitted_at = SYSTIMESTAMP,
+            review_comment = NULL,
+            approved_at = NULL,
+            updated_at = SYSTIMESTAMP
+        WHERE id = #{id}
+          AND agreement_status = 'REJECTED'
+    </update>
 </mapper>

@@ -63,4 +63,10 @@
         FROM t_application_file
         WHERE id = #{id}
     </select>
+
+    <!-- 재신청 시 기존 파일 메타데이터 일괄 삭제 -->
+    <delete id="deleteByUserId" parameterType="long">
+        DELETE FROM t_application_file
+        WHERE user_id = #{userId}
+    </delete>
 </mapper>

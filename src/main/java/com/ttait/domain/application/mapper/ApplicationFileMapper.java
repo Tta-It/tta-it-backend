@@ -17,4 +17,10 @@ public interface ApplicationFileMapper {
     List<ApplicationFile> findByUserId(@Param("userId") Long userId);
 
     ApplicationFile findById(@Param("id") Long id);
+
+    /**
+     * 특정 사용자의 첨부 파일 메타데이터를 전부 삭제
+     * 재신청(Resubmit) 시 기존 파일 레코드를 일괄 정리할 때 사용
+     */
+    int deleteByUserId(@Param("userId") Long userId);
 }

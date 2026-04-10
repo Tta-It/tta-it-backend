@@ -21,6 +21,7 @@ public enum ErrorCode {
     APPLICATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "APP_001", "이미 협약 신청이 제출되었습니다."),
     APPLICATION_NOT_SUBMITTED(HttpStatus.NOT_FOUND, "APP_002", "아직 제출된 협약 신청이 없습니다."),
     APPLICATION_NOT_REVIEWABLE(HttpStatus.BAD_REQUEST, "APP_003", "검토 대기 상태의 신청만 승인/반려할 수 있습니다."),
+    APPLICATION_NOT_REJECTED(HttpStatus.CONFLICT, "APP_004", "반려 상태의 신청만 재제출할 수 있습니다."),
     INVALID_FILE_EXTENSION(HttpStatus.BAD_REQUEST, "FILE_001", "허용되지 않은 파일 형식입니다. (PDF, DOCX, HWP, HWPX 만 가능)"),
     INVALID_FILE_COUNT(HttpStatus.BAD_REQUEST, "FILE_002", "파일은 1개 이상 10개 이하로 첨부해주세요."),
     MAX_FILE_SIZE_EXCEEDED(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_003", "파일 크기가 허용 한도를 초과했습니다."),
