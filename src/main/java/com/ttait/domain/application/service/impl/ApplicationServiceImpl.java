@@ -24,18 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 기업 관리자의 협약 신청 도메인 서비스.
- * <p>
- * 본 구현에서 지키는 불변식:
- * <ul>
- *     <li>회원가입 시 organization row 가 이미 DRAFT 상태로 생성되어 있다.
- *     <li>기업 관리자 1명당 organization 1개가 1:1 로 연결되어 있다
- *         ({@code T_USER.organization_id}).
- *     <li>협약 신청은 한 번만 제출 가능하다 (중복 제출 불가).
- *         재신청 flow 는 후속 이슈로 분리.
- * </ul>
- */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -72,21 +61,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         organizationMapper.updateApplicationSubmission(organization);
 
         // 파일 디스크에 저장하고 T_APPLICATION_FILE 메타데이터 insert
-        List<Long> savedFileIds = new ArrayList<>();
-        for (MultipartFile multipartFile : request.getFiles()) {
-            StoredFile stored = fileStorageService.store(multipartFile, organization.getId());
-
-            ApplicationFile file = ApplicationFile.builder()
-                    .userId(userId)
-                    .originalFileName(multipartFile.getOriginalFilename())
-                    .storedFileName(stored.storedFileName())
-                    .filePath(stored.relativePath())
-                    .fileSize(stored.fileSize())
-                    .contentType(stored.contentType())
-                    .build();
-            applicationFileMapper.insert(file);
-            savedFileIds.add(file.getId());
-        }
+        List<Long> savedFileIds = storeFiles(userId, organization.getId(), request.getFiles());
 
         // 제출 후 organization 재조회해서 최신 submitted_at 포함 응답 생성
         Organization refreshed = organizationMapper.findById(organization.getId());
@@ -129,5 +104,86 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .toList();
 
         return MyApplicationResponse.of(organization, fileResponses);
+    }
+
+    @Override
+    @Transactional
+    public SubmitApplicationResponse resubmit(Long userId, Long organizationId, SubmitApplicationRequest request) {
+
+        // 사용자의 기업 존재 여부 확인
+        if (organizationId == null) {
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_FOUND);
+        }
+        Organization organization = organizationMapper.findById(organizationId);
+        if (organization == null) {
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_FOUND);
+        }
+
+        // REJECTED 상태에서만 재신청 가능
+        if (organization.getAgreementStatus() != AgreementStatus.REJECTED) {
+            throw new BusinessException(ErrorCode.APPLICATION_NOT_REJECTED);
+        }
+
+        // 기존 첨부 파일 삭제 (디스크 -> DB 순서)
+        List<ApplicationFile> oldFiles = applicationFileMapper.findByUserId(userId);
+        for (ApplicationFile oldFile : oldFiles) {
+            fileStorageService.delete(oldFile.getFilePath());
+        }
+        applicationFileMapper.deleteByUserId(userId);
+
+        // 새 파일 저장
+        List<Long> savedFileIds = storeFiles(userId, organization.getId(), request.getFiles());
+
+        // 제출 정보 갱신 + 상태 REJECTED ->  PENDING 처리 및 submitted_at 갱신, review_comment/approved_at 리셋
+        organization.setIndustryType(request.getIndustryType());
+        organization.setEmployeeCount(request.getEmployeeCount());
+        organization.setAddress(request.getAddress());
+        int updated = organizationMapper.resubmitApplication(organization);
+        if (updated == 0) {
+            // 동시성 상황 방어 (다른 트랜잭션이 상태를 바꿔버린 경우)
+            throw new BusinessException(ErrorCode.APPLICATION_NOT_REJECTED);
+        }
+
+        Organization refreshed = organizationMapper.findById(organization.getId());
+
+        log.info("[APPLICATION] resubmitted — userId={}, orgId={}, files={}",
+                userId, organization.getId(), savedFileIds.size());
+
+        // 실시간 알림 이벤트 발행 — 재신청도 관리자 입장에선 새 검토 대상이므로 기존 이벤트 재사용
+        eventPublisher.publishEvent(new ApplicationSubmittedEvent(
+                refreshed.getId(),
+                refreshed.getOrganizationName(),
+                userId
+        ));
+
+        return new SubmitApplicationResponse(
+                refreshed.getId(),
+                refreshed.getAgreementStatus(),
+                refreshed.getSubmittedAt(),
+                savedFileIds
+        );
+    }
+
+    /**
+     * 업로드 파일 목록을 디스크에 저장하고 T_APPLICATION_FILE 에 메타데이터를 insert 한 뒤
+     * 생성된 file id 목록을 반환한다. submit / resubmit 양쪽에서 공통 사용
+     */
+    private List<Long> storeFiles(Long userId, Long organizationId, List<MultipartFile> multipartFiles) {
+        List<Long> savedFileIds = new ArrayList<>();
+        for (MultipartFile multipartFile : multipartFiles) {
+            StoredFile stored = fileStorageService.store(multipartFile, organizationId);
+
+            ApplicationFile file = ApplicationFile.builder()
+                    .userId(userId)
+                    .originalFileName(multipartFile.getOriginalFilename())
+                    .storedFileName(stored.storedFileName())
+                    .filePath(stored.relativePath())
+                    .fileSize(stored.fileSize())
+                    .contentType(stored.contentType())
+                    .build();
+            applicationFileMapper.insert(file);
+            savedFileIds.add(file.getId());
+        }
+        return savedFileIds;
     }
 }

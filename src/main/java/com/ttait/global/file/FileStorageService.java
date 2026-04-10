@@ -88,6 +88,26 @@ public class FileStorageService {
     }
 
     /**
+     * 상대 경로의 파일을 디스크에서 삭제
+     * 재신청(Resubmit) 시 기존 첨부 파일을 지울 때 사용
+     */
+    public void delete(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) {
+            return;
+        }
+        // 경로 탈출(path traversal) 방어 — loadAsResource 와 동일 패턴
+        Path absolute = baseDir.resolve(relativePath).normalize();
+        if (!absolute.startsWith(baseDir)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        try {
+            Files.deleteIfExists(absolute);
+        } catch (IOException e) {
+            log.warn("파일 삭제 실패 (무시): {}", absolute, e);
+        }
+    }
+
+    /**
      * 상대 경로를 Spring Resource 로 반환 (다운로드 시 사용)
      * 경로 탈출(path traversal)보안 취약점 공격 방지를 위해 base 밖을 가리키는 경로는 거부
      */
