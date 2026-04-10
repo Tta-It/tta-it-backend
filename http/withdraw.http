@@ -1,0 +1,153 @@
+### W0) 관리자 로그인 → adminToken 저장
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{adminLoginId}}",
+  "password": "{{adminPassword}}"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.global.set("adminToken", response.body.data.accessToken);
+%}
+
+
+### W1) 관리자 탈퇴 시도 → 403 USER_005
+### seed 관리자 보호를 위해 ADMIN 역할은 탈퇴 차단
+POST {{baseUrl}}/api/v1/auth/withdraw
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "password": "{{adminPassword}}"
+}
+
+> {%
+    client.test("403 Forbidden", function() {
+        client.assert(response.status === 403, "expected 403 but got " + response.status);
+    });
+    client.test("code is USER_005", function() {
+        client.assert(response.body.code === "USER_005", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### W2) 탈퇴 테스트용 기업 관리자 가입 (withdraw01)
+POST {{baseUrl}}/api/v1/auth/signup/company-admin
+Content-Type: application/json
+
+{
+  "loginId": "withdraw01",
+  "password": "Withdraw1!",
+  "name": "탈퇴테스트",
+  "email": "withdraw01@example.com",
+  "phone": "010-7777-0001",
+  "organizationName": "탈퇴테스트주식회사",
+  "businessNumber": "777-77-77777"
+}
+
+> {%
+    client.test("201 Created or 409 (already exists)", function() {
+        client.assert(
+            response.status === 201 || response.status === 409,
+            "expected 201 or 409 but got " + response.status
+        );
+    });
+%}
+
+
+### W3) 탈퇴 테스트 계정 로그인 → withdrawToken 저장
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "withdraw01",
+  "password": "Withdraw1!"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(
+            response.status === 200,
+            "expected 200 but got " + response.status + " — 이미 탈퇴된 계정이면 DB 리셋 필요"
+        );
+    });
+    client.global.set("withdrawToken", response.body.data.accessToken);
+%}
+
+
+### W4) 탈퇴 — 토큰 없이 호출 → 401 AUTH_002
+POST {{baseUrl}}/api/v1/auth/withdraw
+Content-Type: application/json
+
+{
+  "password": "Withdraw1!"
+}
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+%}
+
+
+
+### W5) 탈퇴 — 비밀번호 틀림 → 401 USER_006
+POST {{baseUrl}}/api/v1/auth/withdraw
+Authorization: Bearer {{withdrawToken}}
+Content-Type: application/json
+
+{
+  "password": "WrongPw1!"
+}
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+    client.test("code is USER_006", function() {
+        client.assert(response.body.code === "USER_006", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### W6) 정상 탈퇴 → 200
+POST {{baseUrl}}/api/v1/auth/withdraw
+Authorization: Bearer {{withdrawToken}}
+Content-Type: application/json
+
+{
+  "password": "Withdraw1!"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+%}
+
+
+### W8) 탈퇴한 계정으로 재로그인 시도 → 403 USER_004
+### CustomUserDetailsService 가 status != ACTIVE 검증해서 차단
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "withdraw01",
+  "password": "Withdraw1!"
+}
+
+> {%
+    client.test("403 Forbidden (INACTIVE)", function() {
+        client.assert(response.status === 403, "expected 403 but got " + response.status);
+    });
+    client.test("code is USER_004", function() {
+        client.assert(
+            response.body.code === "USER_004",
+            "code mismatch: " + response.body.code
+        );
+    });
+%}
