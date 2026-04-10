@@ -53,6 +53,40 @@ docker compose up -d
 - 초기 스키마는 [`docker/oracle/init/01-schema.sh`](docker/oracle/init/01-schema.sh) 에서 생성됩니다.
 - 관리자 시드는 [`docker/oracle/init/02-seed.sh`](docker/oracle/init/02-seed.sh) 에서 적재됩니다.
 - 자격증명은 docker-compose 가 `.env` 에서 자동으로 읽어옵니다.
+- 윈도우 환경에서는 init shell script 줄바꿈이 `CRLF` 로 바뀌면 초기화가 실패할 수 있습니다. 이 저장소는 `.gitattributes` 로 `*.sh` 를 `LF` 로 고정합니다.
+- Oracle 초기화 스크립트는 DB 볼륨이 비어 있을 때 한 번만 실행됩니다. 첫 기동에 실패했다면 `docker compose down -v` 후 다시 `docker compose up -d` 로 올려야 테이블 생성이 재시도됩니다.
+- 테이블이 생기지 않았다면 `docker logs ttait-oracle` 로 `/bin/bash^M`, `sqlplus` 로그인 실패, init script 에러를 먼저 확인하세요.
+
+### Windows 사용자 체크리스트
+
+1. 최신 코드를 pull 받은 뒤 `.env.example` 을 `.env` 로 복사합니다.
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+2. `.env` 에 값을 채웁니다.
+
+3. 이전에 DB를 한 번이라도 띄웠거나, 테이블 생성에 실패한 적이 있으면 볼륨까지 삭제 후 다시 실행합니다.
+
+   ```powershell
+   docker compose down -v
+   docker compose up -d
+   ```
+
+5. 테이블이 생성되지 않으면 아래 로그를 먼저 확인합니다.
+
+   ```powershell
+   docker logs ttait-oracle
+   ```
+
+6. 로그에 `/bin/bash^M` 가 보이면 줄바꿈 문제일 가능성이 큽니다. 최신 코드를 다시 받고, 필요하면 저장소를 새로 clone 한 뒤 다시 시도합니다.
+
+7. DB가 정상 기동된 뒤 애플리케이션을 실행합니다.
+
+   ```powershell
+   .\gradlew.bat bootRun
+   ```
 
 ### 3. 애플리케이션 기동
 

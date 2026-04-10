@@ -1,0 +1,65 @@
+### L0) 관리자 로그인 → adminToken 저장
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "{{adminLoginId}}",
+  "password": "{{adminPassword}}"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.global.set("adminToken", response.body.data.accessToken);
+%}
+
+
+### L1) 로그아웃 — 인증된 상태에서 호출 → 200
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+%}
+
+
+### L2) 로그아웃 후에도 같은 토큰으로 /me 호출 가능 (stateless 검증)
+### 서버가 토큰을 실제로 무효화하지 않음을 확인
+GET {{baseUrl}}/api/v1/users/me
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("200 OK (stateless JWT 는 서버에서 폐기하지 않음)", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+%}
+
+
+### L3) 로그아웃 — 토큰 없이 호출 → 401 AUTH_002
+POST {{baseUrl}}/api/v1/auth/logout
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+    client.test("code is AUTH_002", function() {
+        client.assert(response.body.code === "AUTH_002", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### L4) 로그아웃 — 잘못된 토큰 → 401 AUTH_003
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer eyJinvalid.token.here
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+    client.test("code is AUTH_003", function() {
+        client.assert(response.body.code === "AUTH_003", "code mismatch: " + response.body.code);
+    });
+%}

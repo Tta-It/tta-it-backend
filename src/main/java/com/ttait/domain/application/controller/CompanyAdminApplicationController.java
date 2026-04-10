@@ -42,6 +42,21 @@ public class CompanyAdminApplicationController {
         return ResponseEntity.status(201).body(ApiResponse.ok(response));
     }
 
+    // 반려된 협약 신청 재제출
+    @PostMapping(value = "/resubmit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<SubmitApplicationResponse> resubmit(
+            @AuthenticationPrincipal CustomUserPrincipal principal,
+            @Valid @ModelAttribute SubmitApplicationRequest request) {
+
+        return ApiResponse.ok(
+                applicationService.resubmit(
+                        principal.getId(),
+                        principal.getOrganizationId(),
+                        request
+                )
+        );
+    }
+
     // 본인 기업의 협약 신청 현황 조회
     @GetMapping("/me")
     public ApiResponse<MyApplicationResponse> getMyApplication(

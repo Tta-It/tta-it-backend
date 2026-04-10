@@ -11,4 +11,7 @@ public interface ApplicationService {
 
     // 기업 관리자의 내 협약 신청 현황 조회
     MyApplicationResponse getMyApplication(Long userId, Long organizationId);
+
+    // 반려된 협약 신청 재제출 (REJECTED -> PENDING, 기존 파일 교체)
+    SubmitApplicationResponse resubmit(Long userId, Long organizationId, SubmitApplicationRequest request);
 }

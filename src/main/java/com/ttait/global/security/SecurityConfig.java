@@ -44,7 +44,19 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/actuator/health", "/ws/**").permitAll()
+                        // 로그인/회원가입은 미인증 허용
+                        .requestMatchers(
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/signup/**"
+                        ).permitAll()
+                        // 로그아웃/탈퇴는 인증 필수
+                        .requestMatchers(
+                                "/api/v1/auth/logout",
+                                "/api/v1/auth/withdraw"
+                        ).authenticated()
+                        // 인프라성 엔드포인트
+                        .requestMatchers("/actuator/health", "/ws/**").permitAll()
+                        // 관리자/기업관리자 권한 영역
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/company-admin/**").hasRole("COMPANY_ADMIN")
