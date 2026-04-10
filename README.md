@@ -7,8 +7,8 @@
 - Java 17
 - Spring Boot 3.3
 - Spring Security + JWT
-- Spring WebSocket (예정: 실시간 알림)
-- Spring AOP (예정: 접근 로그)
+- Spring WebSocket (협약 신청, 승인 처리 실시간 알림)
+- Spring AOP (접근 로그 용도)
 - MyBatis
 - Oracle Database
 - Docker Compose
