@@ -2,6 +2,7 @@ package com.ttait.domain.user.mapper;
 
 import com.ttait.domain.user.domain.RoleType;
 import com.ttait.domain.user.domain.User;
+import com.ttait.domain.user.domain.UserStatus;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -24,4 +25,7 @@ public interface UserMapper {
     int insert(User user);
 
     int updateLastLoginAt(@Param("id") Long id);
+
+    // 유저 상태만 업데이트 (탈퇴 시 ACTIVE -> INACTIVE)
+    int updateStatus(@Param("id") Long id, @Param("status") UserStatus status);
 }

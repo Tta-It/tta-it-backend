@@ -108,4 +108,13 @@
             updated_at = SYSTIMESTAMP
         WHERE id = #{id}
     </update>
+
+    <!-- 유저 상태만 업데이트 (탈퇴 시 ACTIVE -> INACTIVE) -->
+    <update id="updateStatus">
+        UPDATE t_user
+        SET
+            status = #{status},
+            updated_at = SYSTIMESTAMP
+        WHERE id = #{id}
+    </update>
 </mapper>

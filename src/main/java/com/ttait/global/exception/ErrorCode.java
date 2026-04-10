@@ -14,6 +14,8 @@ public enum ErrorCode {
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "USER_002", "이미 사용 중인 로그인 아이디입니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USER_003", "이미 사용 중인 이메일입니다."),
     INACTIVE_USER(HttpStatus.FORBIDDEN, "USER_004", "활성 상태의 사용자가 아닙니다."),
+    WITHDRAW_NOT_ALLOWED(HttpStatus.FORBIDDEN, "USER_005", "해당 역할은 탈퇴할 수 없습니다."),
+    WITHDRAW_PASSWORD_MISMATCH(HttpStatus.UNAUTHORIZED, "USER_006", "비밀번호가 일치하지 않습니다."),
     DUPLICATE_BUSINESS_NUMBER(HttpStatus.CONFLICT, "ORG_001", "이미 등록된 사업자등록번호입니다."),
     ORGANIZATION_NOT_FOUND(HttpStatus.NOT_FOUND, "ORG_002", "기업 정보를 찾을 수 없습니다."),
     APPLICATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "APP_001", "이미 협약 신청이 제출되었습니다."),
