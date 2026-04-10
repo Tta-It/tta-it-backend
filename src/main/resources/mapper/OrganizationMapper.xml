@@ -53,6 +53,14 @@
         WHERE business_number = #{businessNumber}
     </select>
 
+    <select id="findApprovedOrganizations" resultMap="organizationResultMap">
+        SELECT <include refid="organizationColumns"/>
+        FROM t_organization
+        WHERE agreement_status = 'ACTIVE'
+          AND approved_at IS NOT NULL
+        ORDER BY approved_at ASC, id ASC
+    </select>
+
     <insert id="insert" parameterType="com.ttait.domain.organization.domain.Organization">
         <selectKey keyProperty="id" resultType="long" order="BEFORE">
             SELECT organization_seq.NEXTVAL FROM dual
