@@ -123,11 +123,3 @@ IntelliJ HTTP Client 파일이 `http/` 디렉터리에 포함되어 있습니다
 ```bash
 cp http/http-client.private.env.json.example http/http-client.private.env.json
 ```
-
-## 개발 예정
-
-- 협약 신청 / 승인 도메인
-- 파일 업로드 모듈
-- WebSocket 알림
-- AOP 접근 로그
-- 대시보드 통계 (CSV 적재)
