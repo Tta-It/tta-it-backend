@@ -12,5 +12,7 @@ public interface EmployeeMapper {
 
     List<Employee> findByOrganizationId(@Param("organizationId") Long organizationId);
 
+    List<Long> findNextIds(@Param("count") int count);
+
     int insertAll(@Param("employees") List<Employee> employees);
 }

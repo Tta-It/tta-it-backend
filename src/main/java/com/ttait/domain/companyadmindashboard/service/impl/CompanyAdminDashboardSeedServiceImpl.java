@@ -86,6 +86,7 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
                     .build());
         }
 
+        assignEmployeeIds(employees);
         employeeMapper.insertAll(employees);
         log.info("기업 관리자 대시보드용 임직원 데이터를 생성했습니다. organizationId={}, count={}",
                 organization.getId(), participantCount);
@@ -189,8 +190,23 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
             return;
         }
 
+        assignEmployeeUsageIds(buffer);
         employeeUsageStatMapper.insertAll(buffer);
         buffer.clear();
+    }
+
+    private void assignEmployeeIds(List<Employee> employees) {
+        List<Long> ids = employeeMapper.findNextIds(employees.size());
+        for (int index = 0; index < employees.size(); index++) {
+            employees.get(index).setId(ids.get(index));
+        }
+    }
+
+    private void assignEmployeeUsageIds(List<EmployeeUsageStat> usages) {
+        List<Long> ids = employeeUsageStatMapper.findNextIds(usages.size());
+        for (int index = 0; index < usages.size(); index++) {
+            usages.get(index).setId(ids.get(index));
+        }
     }
 
     private String generateEmployeeName() {

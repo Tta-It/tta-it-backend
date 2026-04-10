@@ -42,6 +42,12 @@
         ORDER BY id
     </select>
 
+    <select id="findNextIds" resultType="long">
+        SELECT employee_seq.NEXTVAL
+        FROM dual
+        CONNECT BY LEVEL &lt;= #{count}
+    </select>
+
     <insert id="insertAll">
         INSERT ALL
         <foreach collection="employees" item="employee">
@@ -58,7 +64,7 @@
                 created_at,
                 updated_at
             ) VALUES (
-                employee_seq.NEXTVAL,
+                #{employee.id},
                 #{employee.organizationId},
                 #{employee.userId},
                 #{employee.employeeNo},

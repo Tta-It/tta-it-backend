@@ -10,5 +10,7 @@ public interface EmployeeUsageStatMapper {
 
     long countByOrganizationId(@Param("organizationId") Long organizationId);
 
+    List<Long> findNextIds(@Param("count") int count);
+
     int insertAll(@Param("usages") List<EmployeeUsageStat> usages);
 }

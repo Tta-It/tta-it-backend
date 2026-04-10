@@ -10,6 +10,12 @@
         WHERE organization_id = #{organizationId}
     </select>
 
+    <select id="findNextIds" resultType="long">
+        SELECT employee_usage_stat_seq.NEXTVAL
+        FROM dual
+        CONNECT BY LEVEL &lt;= #{count}
+    </select>
+
     <insert id="insertAll">
         INSERT ALL
         <foreach collection="usages" item="usage">
@@ -24,7 +30,7 @@
                 usage_duration_minutes,
                 created_at
             ) VALUES (
-                employee_usage_stat_seq.NEXTVAL,
+                #{usage.id},
                 #{usage.organizationId},
                 #{usage.employeeId},
                 #{usage.usageDate},
