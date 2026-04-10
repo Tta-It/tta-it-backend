@@ -102,11 +102,22 @@ public class AuthServiceImpl implements AuthService {
             String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getLoginId(), user.getRole());
             userMapper.updateLastLoginAt(user.getId());
 
+            // 기업 관리자: 본인 기업의 협약 진행 상태를 함께 응답
+            // 관리자: null로 응답
+            AgreementStatus agreementStatus = null;
+            if (user.getOrganizationId() != null) {
+                Organization organization = organizationMapper.findById(user.getOrganizationId());
+                if (organization != null) {
+                    agreementStatus = organization.getAgreementStatus();
+                }
+            }
+
             return new LoginResponse(
                     accessToken,
                     user.getId(),
                     user.getLoginId(),
-                    user.getRole()
+                    user.getRole(),
+                    agreementStatus
             );
         } catch (BusinessException exception) {
             throw exception;
