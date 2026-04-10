@@ -1,0 +1,183 @@
+### 기업 관리자 협약 재신청(Resubmit)
+
+### RS-0) 기업 관리자 로그인 → 토큰 저장
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "acme01",
+  "password": "Acme1234!"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.global.set("acmeToken", response.body.data.accessToken);
+%}
+
+
+### RS-1) 재신청 전 상태 확인 → REJECTED, reviewComment 존재
+GET {{baseUrl}}/api/v1/company-admin/applications/me
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("status is REJECTED", function() {
+        client.assert(
+            response.body.data.agreementStatus === "REJECTED",
+            "status expected REJECTED but got " + response.body.data.agreementStatus
+        );
+    });
+%}
+
+
+### RS-2) 재신청 제출 (multipart/form-data + 2 files, 변경된 정보)
+POST {{baseUrl}}/api/v1/company-admin/applications/resubmit
+Authorization: Bearer {{acmeToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+IT서비스업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+350
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+서울특별시 강남구 테헤란로 123
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="business_registration.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/business_registration.pdf
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="partnership_proposal.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/partnership_proposal.pdf
+--WebAppBoundary--
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("status is PENDING", function() {
+        client.assert(
+            response.body.data.agreementStatus === "PENDING",
+            "status expected PENDING but got " + response.body.data.agreementStatus
+        );
+    });
+    client.test("fileIds returned (2 files)", function() {
+        client.assert(
+            Array.isArray(response.body.data.fileIds) && response.body.data.fileIds.length === 2,
+            "expected 2 fileIds"
+        );
+    });
+%}
+
+
+### RS-3) 재신청 후 상태 조회 → PENDING + 변경된 필드 + 새 파일만 노출 + reviewComment null
+GET {{baseUrl}}/api/v1/company-admin/applications/me
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("status is PENDING", function() {
+        client.assert(
+            response.body.data.agreementStatus === "PENDING",
+            "status expected PENDING"
+        );
+    });
+    client.test("industryType 변경됨", function() {
+        client.assert(response.body.data.industryType === "IT서비스업", "industryType mismatch");
+    });
+    client.test("employeeCount 변경됨", function() {
+        client.assert(response.body.data.employeeCount === 350, "employeeCount mismatch");
+    });
+    client.test("address 변경됨", function() {
+        client.assert(
+            response.body.data.address.indexOf("테헤란로") >= 0,
+            "address mismatch"
+        );
+    });
+    client.test("files 2개 (새 파일만)", function() {
+        client.assert(
+            Array.isArray(response.body.data.files) && response.body.data.files.length === 2,
+            "expected 2 files"
+        );
+    });
+%}
+
+
+### ================================================
+### 에러 케이스
+### ================================================
+
+
+### RS-E1) REJECTED 아닌 상태에서 재신청 → 409 APP_004
+### (위 RS-2 실행으로 이미 PENDING 상태이므로 재신청 불가)
+POST {{baseUrl}}/api/v1/company-admin/applications/resubmit
+Authorization: Bearer {{acmeToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+건설업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+200
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+서울특별시
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="business_registration.pdf"
+Content-Type: application/pdf
+
+< ./testfiles/business_registration.pdf
+--WebAppBoundary--
+
+> {%
+    client.test("409 Conflict", function() {
+        client.assert(response.status === 409, "expected 409 but got " + response.status);
+    });
+    client.test("code is APP_004", function() {
+        client.assert(response.body.code === "APP_004", "code mismatch: " + response.body.code);
+    });
+%}
+
+
+### RS-E2) 파일 0개로 재신청 → 400 COMMON_001
+POST {{baseUrl}}/api/v1/company-admin/applications/resubmit
+Authorization: Bearer {{acmeToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="industryType"
+
+건설업
+--WebAppBoundary
+Content-Disposition: form-data; name="employeeCount"
+
+200
+--WebAppBoundary
+Content-Disposition: form-data; name="address"
+
+서울특별시
+--WebAppBoundary--
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+%}
