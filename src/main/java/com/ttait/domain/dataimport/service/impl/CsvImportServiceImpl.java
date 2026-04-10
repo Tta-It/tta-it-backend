@@ -47,6 +47,7 @@ import org.springframework.util.StringUtils;
 public class CsvImportServiceImpl implements CsvImportService {
 
     private static final int BATCH_SIZE = 500;
+    private static final long MINIMUM_COMPLETE_STATION_COUNT = 2000;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DataFormatter DATA_FORMATTER = new DataFormatter(Locale.KOREA);
 
@@ -84,9 +85,15 @@ public class CsvImportServiceImpl implements CsvImportService {
 
     private void importStationsIfNeeded() {
         long existingStationCount = stationMapper.countAll();
-        if (existingStationCount > 0) {
+        if (existingStationCount >= MINIMUM_COMPLETE_STATION_COUNT) {
             log.info("대여소 데이터가 이미 {}건 존재하여 자동 적재를 건너뜁니다", existingStationCount);
             return;
+        }
+
+        if (existingStationCount > 0) {
+            // 일부만 적재된 상태라면 전체 파일 기준으로 다시 맞춘다.
+            stationMapper.deleteAll();
+            log.info("대여소 데이터가 {}건만 존재하여 전체 재적재를 진행합니다.", existingStationCount);
         }
 
         Path stationFile = resolveStationSource(csvImportProperties.getStationFilePath());

@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,15 +67,18 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
     }
 
     private void seedEmployeesIfNeeded(Organization organization) {
-        if (employeeMapper.countByOrganizationId(organization.getId()) > 0) {
+        List<Employee> existingEmployees = employeeMapper.findByOrganizationId(organization.getId());
+        int participantCount = calculateParticipantCount(organization.getEmployeeCount());
+        if (existingEmployees.size() >= participantCount) {
             return;
         }
 
         // 전체 직원이 모두 참여하진 않으므로 일부 인원만 사업 참여 임직원으로 생성한다.
-        int participantCount = calculateParticipantCount(organization.getEmployeeCount());
-        List<Employee> employees = new ArrayList<>(participantCount);
+        int missingCount = participantCount - existingEmployees.size();
+        int nextIndex = existingEmployees.size() + 1;
+        List<Employee> employees = new ArrayList<>(missingCount);
 
-        for (int index = 1; index <= participantCount; index++) {
+        for (int index = nextIndex; index < nextIndex + missingCount; index++) {
             String employeeNo = String.format("ORG%03d-EMP%03d", organization.getId(), index);
             employees.add(Employee.builder()
                     .organizationId(organization.getId())
@@ -88,15 +93,11 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
 
         assignEmployeeIds(employees);
         employeeMapper.insertAll(employees);
-        log.info("기업 관리자 대시보드용 임직원 데이터를 생성했습니다. organizationId={}, count={}",
-                organization.getId(), participantCount);
+        log.info("기업 관리자 대시보드용 임직원 데이터를 생성했습니다. organizationId={}, addedCount={}, totalTargetCount={}",
+                organization.getId(), missingCount, participantCount);
     }
 
     private void seedEmployeeUsagesIfNeeded(Organization organization) {
-        if (employeeUsageStatMapper.countByOrganizationId(organization.getId()) > 0) {
-            return;
-        }
-
         if (organization.getApprovedAt() == null) {
             return;
         }
@@ -115,15 +116,23 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
             return;
         }
 
+        Set<Long> employeeIdsWithUsage = new HashSet<>(
+                employeeUsageStatMapper.findEmployeeIdsByOrganizationId(organization.getId())
+        );
         List<EmployeeUsageStat> buffer = new ArrayList<>(INSERT_BATCH_SIZE);
+        int seededEmployeeCount = 0;
         for (Employee employee : employees) {
+            if (employeeIdsWithUsage.contains(employee.getId())) {
+                continue;
+            }
             generateEmployeeUsageStats(organization.getId(), employee, usageStartDate, buffer);
             flushUsageBufferIfNeeded(buffer);
+            seededEmployeeCount++;
         }
         flushUsageBuffer(buffer);
 
-        log.info("기업 관리자 대시보드용 이용 데이터를 생성했습니다. organizationId={}, employeeCount={}, usageStartDate={}",
-                organization.getId(), employees.size(), usageStartDate);
+        log.info("기업 관리자 대시보드용 이용 데이터를 생성했습니다. organizationId={}, seededEmployeeCount={}, usageStartDate={}",
+                organization.getId(), seededEmployeeCount, usageStartDate);
     }
 
     private int calculateParticipantCount(Integer employeeCount) {

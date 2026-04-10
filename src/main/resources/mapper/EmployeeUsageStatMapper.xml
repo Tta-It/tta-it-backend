@@ -10,7 +10,14 @@
         WHERE organization_id = #{organizationId}
     </select>
 
+    <select id="findEmployeeIdsByOrganizationId" resultType="long">
+        SELECT DISTINCT employee_id
+        FROM t_employee_usage_stat
+        WHERE organization_id = #{organizationId}
+    </select>
+
     <select id="findNextIds" resultType="long">
+        <!-- INSERT ALL 전에 자바 쪽에서 사용할 ID를 미리 확보한다. -->
         SELECT employee_usage_stat_seq.NEXTVAL
         FROM dual
         CONNECT BY LEVEL &lt;= #{count}
