@@ -44,6 +44,8 @@ app:
     usage-dir-path: ${CSV_IMPORT_USAGE_DIR_PATH:}
     station-charset: ${CSV_IMPORT_STATION_CHARSET:UTF-8}
     usage-charset: ${CSV_IMPORT_USAGE_CHARSET:MS949}
+  company-dashboard-seed:
+    enabled: ${COMPANY_DASHBOARD_SEED_ENABLED:false}
 
 logging:
   level:
