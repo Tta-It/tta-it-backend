@@ -9,6 +9,9 @@ import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+/**
+ * 기업 관리자 대시보드 조회용 집계 SQL 매퍼.
+ */
 @Mapper
 public interface CompanyAdminDashboardMapper {
 

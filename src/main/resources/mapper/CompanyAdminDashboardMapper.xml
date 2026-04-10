@@ -4,6 +4,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ttait.domain.companyadmindashboard.mapper.CompanyAdminDashboardMapper">
 
+    <!-- 월별 임직원 집계를 공통 CTE로 묶어 요약/목록/상세 조회에서 재사용한다. -->
     <sql id="monthlyEmployeeUsageCte">
         WITH employee_base AS (
             SELECT
@@ -43,6 +44,7 @@
 
     <select id="findSummary"
             resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardSummaryResponse">
+        <!-- KPI 카드에 필요한 전체 이용량, 거리, 탄소 절감량, 보상 대상 수를 집계한다. -->
         <include refid="monthlyEmployeeUsageCte"/>
         SELECT
             NVL(SUM(usage_count), 0) AS total_usage_count,
@@ -60,6 +62,7 @@
 
     <select id="findEmployeeUsages"
             resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeUsageResponse">
+        <!-- 임직원 목록 화면에서 바로 쓸 월별 요약 데이터를 내려준다. -->
         <include refid="monthlyEmployeeUsageCte"/>
         SELECT
             employee_id,
@@ -83,6 +86,7 @@
 
     <select id="findEmployeeDetail"
             resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDetailResponse">
+        <!-- 선택한 임직원 한 명의 월별 상세 요약을 조회한다. -->
         <include refid="monthlyEmployeeUsageCte"/>
         SELECT
             employee_id,
@@ -103,6 +107,7 @@
 
     <select id="findEmployeeDailyUsages"
             resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDailyUsageResponse">
+        <!-- 상세 보기에서 사용할 일자별 이용 이력을 조회한다. -->
         SELECT
             usage_date,
             usage_count,
