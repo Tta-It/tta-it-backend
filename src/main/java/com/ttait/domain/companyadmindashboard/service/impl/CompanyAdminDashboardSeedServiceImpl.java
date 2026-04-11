@@ -32,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboardSeedService {
 
     private static final LocalDate DATA_BASE_START_DATE = LocalDate.of(2025, 1, 1);
-    private static final LocalDate DATA_BASE_END_DATE = LocalDate.of(2025, 12, 31);
     private static final int INSERT_BATCH_SIZE = 500;
     private static final BigDecimal CARBON_REDUCTION_PER_KM = BigDecimal.valueOf(0.239);
     private static final String[] LAST_NAMES = {
@@ -104,12 +103,14 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
             return;
         }
 
+        LocalDate usageEndDate = resolveUsageEndDate();
+
         // 실제 협약일보다 1년 앞당긴 날짜를 2025년 사용 데이터의 시작 기준으로 본다.
         LocalDate usageStartDate = organization.getApprovedAt().toLocalDate().minusYears(1);
         if (usageStartDate.isBefore(DATA_BASE_START_DATE)) {
             usageStartDate = DATA_BASE_START_DATE;
         }
-        if (usageStartDate.isAfter(DATA_BASE_END_DATE)) {
+        if (usageStartDate.isAfter(usageEndDate)) {
             return;
         }
 
@@ -127,14 +128,14 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
             if (employeeIdsWithUsage.contains(employee.getId())) {
                 continue;
             }
-            generateEmployeeUsageStats(organization.getId(), employee, usageStartDate, buffer);
+            generateEmployeeUsageStats(organization.getId(), employee, usageStartDate, usageEndDate, buffer);
             flushUsageBufferIfNeeded(buffer);
             seededEmployeeCount++;
         }
         flushUsageBuffer(buffer);
 
-        log.info("기업 관리자 대시보드용 이용 데이터를 생성했습니다. organizationId={}, seededEmployeeCount={}, usageStartDate={}",
-                organization.getId(), seededEmployeeCount, usageStartDate);
+        log.info("기업 관리자 대시보드용 이용 데이터를 생성했습니다. organizationId={}, seededEmployeeCount={}, usageStartDate={}, usageEndDate={}",
+                organization.getId(), seededEmployeeCount, usageStartDate, usageEndDate);
     }
 
     private int calculateParticipantCount(Integer employeeCount) {
@@ -155,9 +156,10 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
             Long organizationId,
             Employee employee,
             LocalDate usageStartDate,
+            LocalDate usageEndDate,
             List<EmployeeUsageStat> buffer
     ) {
-        long totalDays = ChronoUnit.DAYS.between(usageStartDate, DATA_BASE_END_DATE) + 1;
+        long totalDays = ChronoUnit.DAYS.between(usageStartDate, usageEndDate) + 1;
         double weekdayCommuteRate = ThreadLocalRandom.current().nextDouble(0.18, 0.34);
         double weekendLeisureRate = ThreadLocalRandom.current().nextDouble(0.28, 0.48);
 
@@ -190,6 +192,10 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
                     .createdAt(LocalDateTime.now())
                     .build());
         }
+    }
+
+    private LocalDate resolveUsageEndDate() {
+        return LocalDate.now().minusDays(1);
     }
 
     private boolean isWeekend(LocalDate usageDate) {
