@@ -13,11 +13,6 @@
         DELETE FROM t_station
     </delete>
 
-    <select id="findAllStationCodes" resultType="string">
-        SELECT station_code
-        FROM t_station
-    </select>
-
     <insert id="insertAll">
         INSERT ALL
         <foreach collection="stations" item="station">

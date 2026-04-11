@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ttait.domain.companyadmindashboard.mapper.CompanyAdminDashboardMapper">
+
+    <!-- 월별 임직원 집계를 공통 CTE로 묶어 요약/목록/상세 조회에서 재사용한다. -->
+    <sql id="monthlyEmployeeUsageCte">
+        WITH employee_base AS (
+            SELECT
+                e.id AS employee_id,
+                e.organization_id,
+                e.name AS employee_name,
+                NVL(e.department, '미지정') AS department,
+                NVL(e.position, '사원') AS position
+            FROM t_employee e
+            WHERE e.organization_id = #{organizationId}
+              AND NVL(e.employment_status, 'ACTIVE') = 'ACTIVE'
+        ),
+        monthly_employee_usage AS (
+            SELECT
+                e.employee_id,
+                e.employee_name,
+                e.department,
+                e.position,
+                NVL(SUM(u.usage_count), 0) AS usage_count,
+                NVL(ROUND(SUM(u.travel_distance), 1), 0) AS travel_distance,
+                NVL(ROUND(SUM(u.carbon_amount), 1), 0) AS carbon_amount
+            FROM employee_base e
+            LEFT JOIN t_employee_usage_stat u
+                ON u.employee_id = e.employee_id
+               AND u.organization_id = #{organizationId}
+               AND u.usage_date BETWEEN #{startDate} AND #{endDate}
+            GROUP BY e.employee_id, e.employee_name, e.department, e.position
+        ),
+        ranked_employee_usage AS (
+            SELECT
+                m.*,
+                ROW_NUMBER() OVER (ORDER BY m.usage_count DESC, m.carbon_amount DESC, m.employee_id ASC) AS usage_rank,
+                COUNT(*) OVER () AS total_employee_count
+            FROM monthly_employee_usage m
+        )
+    </sql>
+
+    <select id="findSummary"
+            resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardSummaryResponse">
+        <!-- KPI 카드에 필요한 전체 이용량, 거리, 탄소 절감량, 보상 대상 수를 집계한다. -->
+        <include refid="monthlyEmployeeUsageCte"/>
+        SELECT
+            NVL(SUM(usage_count), 0) AS total_usage_count,
+            NVL(ROUND(SUM(travel_distance), 1), 0) AS total_travel_distance,
+            NVL(ROUND(SUM(carbon_amount), 1), 0) AS total_carbon_reduction,
+            NVL(SUM(
+                CASE
+                    WHEN usage_rank &lt;= CEIL(total_employee_count * (#{rewardTargetPercent} / 100.0))
+                         AND usage_count &gt;= #{minimumMonthlyUsageCount} THEN 1
+                    ELSE 0
+                END
+            ), 0) AS reward_target_employee_count
+        FROM ranked_employee_usage
+    </select>
+
+    <select id="findEmployeeUsages"
+            resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeUsageResponse">
+        <!-- 임직원 목록 화면에서 바로 쓸 월별 요약 데이터를 내려준다. -->
+        <include refid="monthlyEmployeeUsageCte"/>
+        SELECT
+            employee_id,
+            employee_name,
+            department,
+            usage_count,
+            travel_distance,
+            carbon_amount AS carbon_reduction,
+            CASE
+                WHEN usage_rank &lt;= CEIL(total_employee_count * (#{rewardTargetPercent} / 100.0))
+                     AND usage_count &gt;= #{minimumMonthlyUsageCount} THEN 1
+                ELSE 0
+            END AS reward_target
+        FROM ranked_employee_usage
+        <if test="rewardOnly">
+            WHERE usage_rank &lt;= CEIL(total_employee_count * (#{rewardTargetPercent} / 100.0))
+              AND usage_count &gt;= #{minimumMonthlyUsageCount}
+        </if>
+        ORDER BY usage_count DESC, carbon_amount DESC, employee_id ASC
+    </select>
+
+    <select id="findEmployeeDetail"
+            resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDetailResponse">
+        <!-- 선택한 임직원 한 명의 월별 상세 요약을 조회한다. -->
+        <include refid="monthlyEmployeeUsageCte"/>
+        SELECT
+            employee_id,
+            employee_name,
+            department,
+            position,
+            usage_count,
+            travel_distance,
+            carbon_amount AS carbon_reduction,
+            CASE
+                WHEN usage_rank &lt;= CEIL(total_employee_count * (#{rewardTargetPercent} / 100.0))
+                     AND usage_count &gt;= #{minimumMonthlyUsageCount} THEN 1
+                ELSE 0
+            END AS reward_target
+        FROM ranked_employee_usage
+        WHERE employee_id = #{employeeId}
+    </select>
+
+    <select id="findEmployeeDailyUsages"
+            resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDailyUsageResponse">
+        <!-- 상세 보기에서 사용할 일자별 이용 이력을 조회한다. -->
+        SELECT
+            usage_date,
+            usage_count,
+            travel_distance,
+            carbon_amount
+        FROM t_employee_usage_stat
+        WHERE organization_id = #{organizationId}
+          AND employee_id = #{employeeId}
+          AND usage_date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY usage_date ASC
+    </select>
+</mapper>

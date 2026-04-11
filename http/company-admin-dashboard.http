@@ -1,0 +1,108 @@
+### CD-1) 기업 관리자 로그인 후 토큰 저장
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "acme01",
+  "password": "Acme1234!"
+}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("role is COMPANY_ADMIN", function() {
+        client.assert(response.body.data.role === "COMPANY_ADMIN", "role mismatch");
+    });
+    client.global.set("acmeToken", response.body.data.accessToken);
+%}
+
+
+### CD-2) 기본 조건으로 운영 대시보드 조회
+GET {{baseUrl}}/api/v1/company-admin/dashboard
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("summary exists", function() {
+        client.assert(response.body.data.summary, "summary missing");
+    });
+    client.test("employeeUsages array exists", function() {
+        client.assert(Array.isArray(response.body.data.employeeUsages), "employeeUsages not array");
+    });
+%}
+
+
+### CD-3) 월별 조건과 보상 기준으로 운영 대시보드 조회
+GET {{baseUrl}}/api/v1/company-admin/dashboard?targetMonth=2025-03&rewardTargetPercent=10&minimumMonthlyUsageCount=15
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("reward criteria echoed", function() {
+        client.assert(response.body.data.rewardCriteria.targetMonth === "2025-03", "targetMonth mismatch");
+        client.assert(response.body.data.rewardCriteria.rewardTargetPercent === 10, "rewardTargetPercent mismatch");
+        client.assert(response.body.data.rewardCriteria.minimumMonthlyUsageCount === 15, "minimumMonthlyUsageCount mismatch");
+    });
+%}
+
+
+### CD-4) 보상 대상만 조회
+GET {{baseUrl}}/api/v1/company-admin/dashboard?targetMonth=2025-03&rewardTargetPercent=10&minimumMonthlyUsageCount=15&rewardOnly=true
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "expected 200 but got " + response.status);
+    });
+    client.test("rewardOnly true", function() {
+        client.assert(response.body.data.rewardCriteria.rewardOnly === true, "rewardOnly mismatch");
+    });
+%}
+
+
+### CD-5) 임직원 상세 조회
+GET {{baseUrl}}/api/v1/company-admin/dashboard/employees/1?targetMonth=2025-03&rewardTargetPercent=10&minimumMonthlyUsageCount=15
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("200 or 400", function() {
+        client.assert(response.status === 200 || response.status === 400, "expected 200 or 400 but got " + response.status);
+    });
+%}
+
+
+### E-CD-1) 잘못된 월 형식 조회 시 400 응답 확인
+GET {{baseUrl}}/api/v1/company-admin/dashboard?targetMonth=2025/03
+Authorization: Bearer {{acmeToken}}
+
+> {%
+    client.test("400 Bad Request", function() {
+        client.assert(response.status === 400, "expected 400 but got " + response.status);
+    });
+%}
+
+
+### E-CD-2) 관리자 토큰으로 조회 시 403 응답 확인
+GET {{baseUrl}}/api/v1/company-admin/dashboard
+Authorization: Bearer {{adminToken}}
+
+> {%
+    client.test("403 Forbidden", function() {
+        client.assert(response.status === 403, "expected 403 but got " + response.status);
+    });
+%}
+
+
+### E-CD-3) 토큰 없이 조회 시 401 응답 확인
+GET {{baseUrl}}/api/v1/company-admin/dashboard
+
+> {%
+    client.test("401 Unauthorized", function() {
+        client.assert(response.status === 401, "expected 401 but got " + response.status);
+    });
+%}

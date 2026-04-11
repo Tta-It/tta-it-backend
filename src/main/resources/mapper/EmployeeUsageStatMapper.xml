@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ttait.domain.employeeusage.mapper.EmployeeUsageStatMapper">
+
+    <select id="countByOrganizationId" resultType="long">
+        SELECT COUNT(*)
+        FROM t_employee_usage_stat
+        WHERE organization_id = #{organizationId}
+    </select>
+
+    <select id="findEmployeeIdsByOrganizationId" resultType="long">
+        SELECT DISTINCT employee_id
+        FROM t_employee_usage_stat
+        WHERE organization_id = #{organizationId}
+    </select>
+
+    <select id="findNextIds" resultType="long">
+        <!-- INSERT ALL 전에 자바 쪽에서 사용할 ID를 미리 확보한다. -->
+        SELECT employee_usage_stat_seq.NEXTVAL
+        FROM dual
+        CONNECT BY LEVEL &lt;= #{count}
+    </select>
+
+    <insert id="insertAll">
+        INSERT ALL
+        <foreach collection="usages" item="usage">
+            INTO t_employee_usage_stat (
+                id,
+                organization_id,
+                employee_id,
+                usage_date,
+                usage_count,
+                travel_distance,
+                carbon_amount,
+                usage_duration_minutes,
+                created_at
+            ) VALUES (
+                #{usage.id},
+                #{usage.organizationId},
+                #{usage.employeeId},
+                #{usage.usageDate},
+                #{usage.usageCount},
+                #{usage.travelDistance},
+                #{usage.carbonAmount},
+                #{usage.usageDurationMinutes},
+                SYSTIMESTAMP
+            )
+        </foreach>
+        SELECT 1 FROM dual
+    </insert>
+</mapper>
