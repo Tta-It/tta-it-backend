@@ -39,11 +39,8 @@ app:
   csv-import:
     enabled: ${CSV_IMPORT_ENABLED:false}
     station-enabled: ${CSV_IMPORT_STATION_ENABLED:true}
-    usage-enabled: ${CSV_IMPORT_USAGE_ENABLED:false}
     station-file-path: ${CSV_IMPORT_STATION_FILE_PATH:}
-    usage-dir-path: ${CSV_IMPORT_USAGE_DIR_PATH:}
     station-charset: ${CSV_IMPORT_STATION_CHARSET:UTF-8}
-    usage-charset: ${CSV_IMPORT_USAGE_CHARSET:MS949}
   company-dashboard-seed:
     enabled: ${COMPANY_DASHBOARD_SEED_ENABLED:false}
 

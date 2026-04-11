@@ -9,13 +9,14 @@ import com.ttait.domain.organization.domain.Organization;
 import com.ttait.domain.organization.mapper.OrganizationMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
     private static final LocalDate DATA_BASE_START_DATE = LocalDate.of(2025, 1, 1);
     private static final LocalDate DATA_BASE_END_DATE = LocalDate.of(2025, 12, 31);
     private static final int INSERT_BATCH_SIZE = 500;
+    private static final BigDecimal CARBON_REDUCTION_PER_KM = BigDecimal.valueOf(0.239);
     private static final String[] LAST_NAMES = {
             "김", "이", "박", "최", "정", "강", "조", "윤", "장", "임"
     };
@@ -156,23 +158,25 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
             List<EmployeeUsageStat> buffer
     ) {
         long totalDays = ChronoUnit.DAYS.between(usageStartDate, DATA_BASE_END_DATE) + 1;
-        // 협약 직후 데이터가 많지 않다는 느낌을 주기 위해 일자별 생성 확률을 낮게 잡는다.
-        double participationRate = ThreadLocalRandom.current().nextDouble(0.08, 0.17);
+        double weekdayCommuteRate = ThreadLocalRandom.current().nextDouble(0.18, 0.34);
+        double weekendLeisureRate = ThreadLocalRandom.current().nextDouble(0.28, 0.48);
 
         for (int dayOffset = 0; dayOffset < totalDays; dayOffset++) {
             LocalDate usageDate = usageStartDate.plusDays(dayOffset);
-            if (ThreadLocalRandom.current().nextDouble() > participationRate) {
+            boolean weekend = isWeekend(usageDate);
+            double usageRate = weekend ? weekendLeisureRate : weekdayCommuteRate;
+            if (ThreadLocalRandom.current().nextDouble() > usageRate) {
                 continue;
             }
 
-            // 이용한 날에는 1~3회 정도만 탄 것으로 보고 거리/탄소량도 함께 계산한다.
-            int usageCount = ThreadLocalRandom.current().nextInt(1, 4);
-            BigDecimal distancePerRide = decimalBetween(2.6, 5.8);
+            int usageCount = weekend ? weekendUsageCount() : weekdayCommuteUsageCount();
+            BigDecimal distancePerRide = weekend ? decimalBetween(3.5, 8.0) : decimalBetween(2.0, 4.8);
             BigDecimal totalDistance = distancePerRide.multiply(BigDecimal.valueOf(usageCount))
                     .setScale(1, RoundingMode.HALF_UP);
-            BigDecimal carbonAmount = totalDistance.multiply(BigDecimal.valueOf(0.239))
+            BigDecimal carbonAmount = totalDistance.multiply(CARBON_REDUCTION_PER_KM)
                     .setScale(1, RoundingMode.HALF_UP);
-            BigDecimal durationMinutes = totalDistance.multiply(decimalBetween(3.8, 5.2))
+            BigDecimal durationMinutes = totalDistance
+                    .multiply(weekend ? decimalBetween(4.2, 6.5) : decimalBetween(3.8, 5.2))
                     .setScale(1, RoundingMode.HALF_UP);
 
             buffer.add(EmployeeUsageStat.builder()
@@ -186,6 +190,33 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
                     .createdAt(LocalDateTime.now())
                     .build());
         }
+    }
+
+    private boolean isWeekend(LocalDate usageDate) {
+        DayOfWeek dayOfWeek = usageDate.getDayOfWeek();
+        return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
+    }
+
+    private int weekdayCommuteUsageCount() {
+        double randomValue = ThreadLocalRandom.current().nextDouble();
+        if (randomValue < 0.70) {
+            return 2;
+        }
+        if (randomValue < 0.93) {
+            return 1;
+        }
+        return 3;
+    }
+
+    private int weekendUsageCount() {
+        double randomValue = ThreadLocalRandom.current().nextDouble();
+        if (randomValue < 0.50) {
+            return 2;
+        }
+        if (randomValue < 0.85) {
+            return 3;
+        }
+        return 4;
     }
 
     private void flushUsageBufferIfNeeded(List<EmployeeUsageStat> buffer) {

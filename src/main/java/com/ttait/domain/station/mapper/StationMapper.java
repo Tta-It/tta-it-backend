@@ -12,7 +12,5 @@ public interface StationMapper {
 
     int deleteAll();
 
-    List<String> findAllStationCodes();
-
     int insertAll(@Param("stations") List<Station> stations);
 }
