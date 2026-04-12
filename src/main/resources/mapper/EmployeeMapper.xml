@@ -81,4 +81,82 @@
         </foreach>
         SELECT 1 FROM dual
     </insert>
+
+    <insert id="insertSeedEmployees">
+        INSERT INTO t_employee (
+            id,
+            organization_id,
+            user_id,
+            employee_no,
+            name,
+            email,
+            department,
+            position,
+            employment_status,
+            created_at,
+            updated_at
+        )
+        SELECT
+            employee_seq.NEXTVAL,
+            #{organizationId},
+            NULL,
+            'ORG' || LPAD(#{organizationId}, 3, '0') || '-EMP' || LPAD(#{startIndex} + LEVEL - 1, 5, '0'),
+            CASE MOD(#{startIndex} + LEVEL - 1, 10)
+                WHEN 0 THEN '김'
+                WHEN 1 THEN '이'
+                WHEN 2 THEN '박'
+                WHEN 3 THEN '최'
+                WHEN 4 THEN '정'
+                WHEN 5 THEN '강'
+                WHEN 6 THEN '조'
+                WHEN 7 THEN '윤'
+                WHEN 8 THEN '장'
+                ELSE '임'
+            END ||
+            CASE MOD(#{startIndex} + LEVEL - 1, 20)
+                WHEN 0 THEN '민수'
+                WHEN 1 THEN '서준'
+                WHEN 2 THEN '지우'
+                WHEN 3 THEN '예진'
+                WHEN 4 THEN '하윤'
+                WHEN 5 THEN '도윤'
+                WHEN 6 THEN '지민'
+                WHEN 7 THEN '서연'
+                WHEN 8 THEN '현우'
+                WHEN 9 THEN '수연'
+                WHEN 10 THEN '태민'
+                WHEN 11 THEN '다은'
+                WHEN 12 THEN '유진'
+                WHEN 13 THEN '지호'
+                WHEN 14 THEN '서윤'
+                WHEN 15 THEN '도현'
+                WHEN 16 THEN '지원'
+                WHEN 17 THEN '준호'
+                WHEN 18 THEN '소연'
+                ELSE '민재'
+            END,
+            'employee-' || #{organizationId} || '-' || (#{startIndex} + LEVEL - 1) || '@ttait.local',
+            CASE MOD(#{startIndex} + LEVEL - 1, 8)
+                WHEN 0 THEN '개발팀'
+                WHEN 1 THEN '인사팀'
+                WHEN 2 THEN '기획팀'
+                WHEN 3 THEN '운영팀'
+                WHEN 4 THEN '마케팅팀'
+                WHEN 5 THEN '디자인팀'
+                WHEN 6 THEN '영업팀'
+                ELSE '전략팀'
+            END,
+            CASE MOD(#{startIndex} + LEVEL - 1, 5)
+                WHEN 0 THEN '사원'
+                WHEN 1 THEN '주임'
+                WHEN 2 THEN '대리'
+                WHEN 3 THEN '과장'
+                ELSE '차장'
+            END,
+            'ACTIVE',
+            SYSTIMESTAMP,
+            SYSTIMESTAMP
+        FROM dual
+        CONNECT BY LEVEL &lt;= #{count}
+    </insert>
 </mapper>
