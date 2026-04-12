@@ -5,6 +5,7 @@ import com.ttait.domain.employee.domain.Employee;
 import com.ttait.domain.employee.mapper.EmployeeMapper;
 import com.ttait.domain.employeeusage.domain.EmployeeUsageStat;
 import com.ttait.domain.employeeusage.mapper.EmployeeUsageStatMapper;
+import com.ttait.domain.organization.domain.AgreementStatus;
 import com.ttait.domain.organization.domain.Organization;
 import com.ttait.domain.organization.mapper.OrganizationMapper;
 import java.math.BigDecimal;
@@ -31,8 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboardSeedService {
 
-    private static final LocalDate DATA_BASE_START_DATE = LocalDate.of(2025, 1, 1);
-    private static final int INSERT_BATCH_SIZE = 500;
+    private static final int EMPLOYEE_INSERT_BATCH_SIZE = 50;
+    private static final int USAGE_INSERT_BATCH_SIZE = 100;
     private static final BigDecimal CARBON_REDUCTION_PER_KM = BigDecimal.valueOf(0.239);
     private static final String[] LAST_NAMES = {
             "김", "이", "박", "최", "정", "강", "조", "윤", "장", "임"
@@ -62,38 +63,38 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
         }
 
         for (Organization organization : approvedOrganizations) {
-            seedEmployeesIfNeeded(organization);
-            seedEmployeeUsagesIfNeeded(organization);
+            seedOrganizationIfNeeded(organization);
         }
     }
 
+    @Override
+    @Transactional
+    public void seedIfNeeded(Long organizationId) {
+        Organization organization = organizationMapper.findById(organizationId);
+        if (organization == null || organization.getAgreementStatus() != AgreementStatus.ACTIVE) {
+            log.warn("Skip company dashboard seed. organizationId={}, reason=not-active", organizationId);
+            return;
+        }
+
+        seedOrganizationIfNeeded(organization);
+    }
+
+    private void seedOrganizationIfNeeded(Organization organization) {
+        seedEmployeesIfNeeded(organization);
+        seedEmployeeUsagesIfNeeded(organization);
+    }
+
     private void seedEmployeesIfNeeded(Organization organization) {
-        List<Employee> existingEmployees = employeeMapper.findByOrganizationId(organization.getId());
-        int participantCount = calculateParticipantCount(organization.getEmployeeCount());
-        if (existingEmployees.size() >= participantCount) {
+        int existingEmployeeCount = (int) employeeMapper.countByOrganizationId(organization.getId());
+        int participantCount = calculateParticipantCount(organization);
+        if (existingEmployeeCount >= participantCount) {
             return;
         }
 
         // 전체 직원이 모두 참여하진 않으므로 일부 인원만 사업 참여 임직원으로 생성한다.
-        int missingCount = participantCount - existingEmployees.size();
-        int nextIndex = existingEmployees.size() + 1;
-        List<Employee> employees = new ArrayList<>(missingCount);
-
-        for (int index = nextIndex; index < nextIndex + missingCount; index++) {
-            String employeeNo = String.format("ORG%03d-EMP%03d", organization.getId(), index);
-            employees.add(Employee.builder()
-                    .organizationId(organization.getId())
-                    .employeeNo(employeeNo)
-                    .name(generateEmployeeName())
-                    .email("employee-" + organization.getId() + "-" + index + "@ttait.local")
-                    .department(pickRandom(DEPARTMENTS))
-                    .position(pickRandom(POSITIONS))
-                    .employmentStatus("ACTIVE")
-                    .build());
-        }
-
-        assignEmployeeIds(employees);
-        employeeMapper.insertAll(employees);
+        int missingCount = participantCount - existingEmployeeCount;
+        int nextIndex = existingEmployeeCount + 1;
+        employeeMapper.insertSeedEmployees(organization.getId(), nextIndex, missingCount);
         log.info("기업 관리자 대시보드용 임직원 데이터를 생성했습니다. organizationId={}, addedCount={}, totalTargetCount={}",
                 organization.getId(), missingCount, participantCount);
     }
@@ -105,47 +106,38 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
 
         LocalDate usageEndDate = resolveUsageEndDate();
 
-        // 실제 협약일보다 1년 앞당긴 날짜를 2025년 사용 데이터의 시작 기준으로 본다.
-        LocalDate usageStartDate = organization.getApprovedAt().toLocalDate().minusYears(1);
-        if (usageStartDate.isBefore(DATA_BASE_START_DATE)) {
-            usageStartDate = DATA_BASE_START_DATE;
-        }
+        // approvedAt은 시연용 협약 시작일로 저장되어 사용 데이터 시작 기준이 된다.
+        LocalDate usageStartDate = organization.getApprovedAt().toLocalDate();
         if (usageStartDate.isAfter(usageEndDate)) {
             return;
         }
 
-        List<Employee> employees = employeeMapper.findByOrganizationId(organization.getId());
-        if (employees.isEmpty()) {
+        long employeeCount = employeeMapper.countByOrganizationId(organization.getId());
+        if (employeeCount == 0) {
             return;
         }
 
-        Set<Long> employeeIdsWithUsage = new HashSet<>(
-                employeeUsageStatMapper.findEmployeeIdsByOrganizationId(organization.getId())
+        int dayCount = (int) ChronoUnit.DAYS.between(usageStartDate, usageEndDate) + 1;
+        int insertedUsageCount = employeeUsageStatMapper.insertSeedUsageStats(
+                organization.getId(),
+                usageStartDate,
+                dayCount
         );
-        List<EmployeeUsageStat> buffer = new ArrayList<>(INSERT_BATCH_SIZE);
-        int seededEmployeeCount = 0;
-        for (Employee employee : employees) {
-            if (employeeIdsWithUsage.contains(employee.getId())) {
-                continue;
-            }
-            generateEmployeeUsageStats(organization.getId(), employee, usageStartDate, usageEndDate, buffer);
-            flushUsageBufferIfNeeded(buffer);
-            seededEmployeeCount++;
-        }
-        flushUsageBuffer(buffer);
 
-        log.info("기업 관리자 대시보드용 이용 데이터를 생성했습니다. organizationId={}, seededEmployeeCount={}, usageStartDate={}, usageEndDate={}",
-                organization.getId(), seededEmployeeCount, usageStartDate, usageEndDate);
+        log.info("기업 관리자 대시보드용 이용 데이터를 생성했습니다. organizationId={}, employeeCount={}, insertedUsageCount={}, usageStartDate={}, usageEndDate={}",
+                organization.getId(), employeeCount, insertedUsageCount, usageStartDate, usageEndDate);
     }
 
-    private int calculateParticipantCount(Integer employeeCount) {
+    private int calculateParticipantCount(Organization organization) {
+        Integer employeeCount = organization.getEmployeeCount();
         int totalEmployeeCount = employeeCount != null && employeeCount > 0 ? employeeCount : 20;
         if (totalEmployeeCount == 1) {
             return 1;
         }
 
         // 참여 임직원은 회사 전체 인원의 일부만 되도록 25%~55% 범위에서 정한다.
-        double ratio = ThreadLocalRandom.current().nextDouble(0.25, 0.55);
+        int seed = organization.getId() != null ? organization.getId().intValue() : totalEmployeeCount;
+        double ratio = 0.25 + (Math.floorMod(seed, 31) / 100.0);
         int participantCount = (int) Math.round(totalEmployeeCount * ratio);
         participantCount = Math.max(1, participantCount);
         participantCount = Math.min(participantCount, totalEmployeeCount - 1);
@@ -191,6 +183,14 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
                     .usageDurationMinutes(durationMinutes)
                     .createdAt(LocalDateTime.now())
                     .build());
+            flushUsageBufferIfNeeded(buffer);
+        }
+    }
+
+    private void insertEmployeesInBatches(List<Employee> employees) {
+        for (int start = 0; start < employees.size(); start += EMPLOYEE_INSERT_BATCH_SIZE) {
+            int end = Math.min(start + EMPLOYEE_INSERT_BATCH_SIZE, employees.size());
+            employeeMapper.insertAll(employees.subList(start, end));
         }
     }
 
@@ -226,7 +226,7 @@ public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboa
     }
 
     private void flushUsageBufferIfNeeded(List<EmployeeUsageStat> buffer) {
-        if (buffer.size() >= INSERT_BATCH_SIZE) {
+        if (buffer.size() >= USAGE_INSERT_BATCH_SIZE) {
             flushUsageBuffer(buffer);
         }
     }
