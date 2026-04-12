@@ -154,12 +154,12 @@
         <include refid="adminSearchWhere"/>
     </select>
 
-    <!-- 승인: PENDING -> ACTIVE, approved_at = 현재 시각 -->
+    <!-- 승인: PENDING -> ACTIVE, approved_at = 시연용 협약 시작일(현재 기준 1년 전) -->
     <update id="approveApplication" parameterType="long">
         UPDATE t_organization
         SET
             agreement_status = 'ACTIVE',
-            approved_at = SYSTIMESTAMP,
+            approved_at = SYSTIMESTAMP - INTERVAL '1' YEAR,
             updated_at = SYSTIMESTAMP
         WHERE id = #{id}
           AND agreement_status = 'PENDING'

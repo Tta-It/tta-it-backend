@@ -6,13 +6,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.stereotype.Component;
 
 /**
  * 개발 환경에서 기업 관리자 대시보드 샘플 데이터를 생성하는 러너.
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class CompanyAdminDashboardSeedRunner implements ApplicationRunner {
 

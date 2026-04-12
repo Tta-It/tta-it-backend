@@ -1,6 +1,7 @@
 package com.ttait.domain.employeeusage.mapper;
 
 import com.ttait.domain.employeeusage.domain.EmployeeUsageStat;
+import java.time.LocalDate;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -18,4 +19,10 @@ public interface EmployeeUsageStatMapper {
     List<Long> findNextIds(@Param("count") int count);
 
     int insertAll(@Param("usages") List<EmployeeUsageStat> usages);
+
+    int insertSeedUsageStats(
+            @Param("organizationId") Long organizationId,
+            @Param("startDate") LocalDate startDate,
+            @Param("dayCount") int dayCount
+    );
 }

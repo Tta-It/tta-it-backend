@@ -18,4 +18,10 @@ public interface EmployeeMapper {
     List<Long> findNextIds(@Param("count") int count);
 
     int insertAll(@Param("employees") List<Employee> employees);
+
+    int insertSeedEmployees(
+            @Param("organizationId") Long organizationId,
+            @Param("startIndex") int startIndex,
+            @Param("count") int count
+    );
 }
