@@ -1,5 +1,7 @@
 package com.ttait.domain.admindashboard.service.impl;
 
+import com.ttait.domain.admindashboard.dto.projection.AdminPriorityRegionProjection;
+import com.ttait.domain.admindashboard.dto.projection.AdminUsageAggregateProjection;
 import com.ttait.domain.admindashboard.dto.request.AdminDashboardSearchRequest;
 import com.ttait.domain.admindashboard.dto.response.AdminDashboardResponse;
 import com.ttait.domain.admindashboard.dto.response.AdminDashboardSummaryResponse;
@@ -14,7 +16,12 @@ import com.ttait.global.exception.ErrorCode;
 import com.ttait.domain.admindashboard.service.AdminDashboardService;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,29 +39,29 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     @Override
     public AdminDashboardResponse getDashboard(AdminDashboardSearchRequest request) {
         // 기간이 없으면 최근 7일 기준으로 조회한다.
-        LocalDate from = request.getFrom() != null ? request.getFrom() : LocalDate.now().minusDays(6);
         LocalDate to = request.getTo() != null ? request.getTo() : LocalDate.now();
+        LocalDate from = request.getFrom() != null ? request.getFrom() : to.minusDays(6);
         validateDateRange(from, to);
 
         long periodDays = ChronoUnit.DAYS.between(from, to) + 1;
         LocalDate previousTo = from.minusDays(1);
         LocalDate previousFrom = previousTo.minusDays(periodDays - 1);
 
-        Long totalUsageCount = adminDashboardMapper.findTotalUsageCount(from, to);
         Integer pendingApplicationCount = adminDashboardMapper.countPendingApplications();
-        Integer priorityReviewCount = adminDashboardMapper.countPriorityRegions(from, to, previousFrom, previousTo);
-        List<AdminRegionUsageResponse> regionUsages = adminDashboardMapper.findRegionUsages(from, to);
-        List<AdminUsageTrendResponse> usageTrends = adminDashboardMapper.findUsageTrends(from, to);
-        List<AdminTopRegionResponse> topRegions = adminDashboardMapper.findTopRegions(from, to);
-        List<AdminPriorityRegionResponse> priorityRegions =
-                adminDashboardMapper.findPriorityRegions(from, to, previousFrom, previousTo);
+        List<AdminUsageAggregateProjection> usageAggregates = adminDashboardMapper.findUsageAggregates(from, to);
+        List<AdminRegionUsageResponse> regionUsages = createRegionUsages(usageAggregates);
+        List<AdminUsageTrendResponse> usageTrends = createUsageTrends(usageAggregates);
+        List<AdminTopRegionResponse> topRegions = createTopRegions(regionUsages);
+        List<AdminPriorityRegionProjection> priorityRegionCandidates =
+                adminDashboardMapper.findPriorityRegionCandidates(from, to, previousFrom, previousTo);
+        List<AdminPriorityRegionResponse> priorityRegions = createPriorityRegions(priorityRegionCandidates);
         List<AdminPendingApplicationResponse> pendingApplications = adminDashboardMapper.findPendingApplications();
 
         return AdminDashboardResponse.builder()
                 .summary(AdminDashboardSummaryResponse.builder()
-                        .totalUsageCount(totalUsageCount != null ? totalUsageCount : 0L)
+                        .totalUsageCount(calculateTotalUsageCount(usageAggregates))
                         .topRegionCount(topRegions.size())
-                        .priorityReviewCount(priorityReviewCount != null ? priorityReviewCount : 0)
+                        .priorityReviewCount(calculatePriorityReviewCount(priorityRegionCandidates))
                         .pendingApplicationCount(pendingApplicationCount != null ? pendingApplicationCount : 0)
                         .build())
                 .regionUsages(regionUsages)
@@ -69,5 +76,83 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         if (from.isAfter(to)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
+    }
+
+    private long calculateTotalUsageCount(List<AdminUsageAggregateProjection> usageAggregates) {
+        return usageAggregates.stream()
+                .mapToLong(AdminUsageAggregateProjection::getUsageCount)
+                .sum();
+    }
+
+    private int calculatePriorityReviewCount(List<AdminPriorityRegionProjection> priorityRegionCandidates) {
+        if (priorityRegionCandidates.isEmpty()) {
+            return 0;
+        }
+
+        return priorityRegionCandidates.get(0).getTotalCount();
+    }
+
+    private List<AdminRegionUsageResponse> createRegionUsages(
+            List<AdminUsageAggregateProjection> usageAggregates
+    ) {
+        Map<String, Long> usageCountByRegion = new HashMap<>();
+        for (AdminUsageAggregateProjection usageAggregate : usageAggregates) {
+            usageCountByRegion.merge(usageAggregate.getRegionName(), usageAggregate.getUsageCount(), Long::sum);
+        }
+
+        return usageCountByRegion.entrySet().stream()
+                .map(entry -> AdminRegionUsageResponse.builder()
+                        .regionName(entry.getKey())
+                        .usageCount(entry.getValue())
+                        .build())
+                .sorted(Comparator.comparingLong(AdminRegionUsageResponse::getUsageCount).reversed()
+                        .thenComparing(AdminRegionUsageResponse::getRegionName))
+                .toList();
+    }
+
+    private List<AdminUsageTrendResponse> createUsageTrends(
+            List<AdminUsageAggregateProjection> usageAggregates
+    ) {
+        Map<LocalDate, Long> usageCountByDate = new TreeMap<>();
+        for (AdminUsageAggregateProjection usageAggregate : usageAggregates) {
+            usageCountByDate.merge(usageAggregate.getStatDate(), usageAggregate.getUsageCount(), Long::sum);
+        }
+
+        return usageCountByDate.entrySet().stream()
+                .map(entry -> AdminUsageTrendResponse.builder()
+                        .statDate(entry.getKey())
+                        .usageCount(entry.getValue())
+                        .build())
+                .toList();
+    }
+
+    private List<AdminTopRegionResponse> createTopRegions(List<AdminRegionUsageResponse> regionUsages) {
+        int size = Math.min(5, regionUsages.size());
+        List<AdminTopRegionResponse> topRegions = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            AdminRegionUsageResponse regionUsage = regionUsages.get(i);
+            topRegions.add(AdminTopRegionResponse.builder()
+                    .rank(i + 1)
+                    .regionName(regionUsage.getRegionName())
+                    .usageCount(regionUsage.getUsageCount())
+                    .usageGrowthRate(null)
+                    .build());
+        }
+
+        return topRegions;
+    }
+
+    private List<AdminPriorityRegionResponse> createPriorityRegions(
+            List<AdminPriorityRegionProjection> priorityRegionCandidates
+    ) {
+        return priorityRegionCandidates.stream()
+                .map(priorityRegion -> AdminPriorityRegionResponse.builder()
+                        .rank(priorityRegion.getRank())
+                        .stationName(priorityRegion.getStationName())
+                        .usageGrowthRate(priorityRegion.getUsageGrowthRate())
+                        .reviewStatus(priorityRegion.getReviewStatus())
+                        .build())
+                .toList();
     }
 }
