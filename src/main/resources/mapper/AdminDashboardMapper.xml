@@ -4,6 +4,11 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ttait.domain.admindashboard.mapper.AdminDashboardMapper">
 
+    <select id="findLatestUsageStatDate" resultType="java.time.LocalDate">
+        SELECT MAX(stat_date)
+        FROM t_station_usage_stat
+    </select>
+
     <select id="countPendingApplications" resultType="int">
         SELECT COUNT(*)
         FROM t_organization

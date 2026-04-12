@@ -39,9 +39,16 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     @Override
     public AdminDashboardResponse getDashboard(AdminDashboardSearchRequest request) {
         // 기간이 없으면 최근 7일 기준으로 조회한다.
-        LocalDate to = request.getTo() != null ? request.getTo() : LocalDate.now();
+        LocalDate latestUsageStatDate = resolveLatestUsageStatDate();
+        LocalDate to = request.getTo() != null ? request.getTo() : latestUsageStatDate;
         LocalDate from = request.getFrom() != null ? request.getFrom() : to.minusDays(6);
         validateDateRange(from, to);
+
+        if (latestUsageStatDate != null && from.isAfter(latestUsageStatDate)) {
+            long periodDays = ChronoUnit.DAYS.between(from, to);
+            to = latestUsageStatDate;
+            from = latestUsageStatDate.minusDays(periodDays);
+        }
 
         long periodDays = ChronoUnit.DAYS.between(from, to) + 1;
         LocalDate previousTo = from.minusDays(1);
@@ -76,6 +83,11 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         if (from.isAfter(to)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
+    }
+
+    private LocalDate resolveLatestUsageStatDate() {
+        LocalDate latestUsageStatDate = adminDashboardMapper.findLatestUsageStatDate();
+        return latestUsageStatDate != null ? latestUsageStatDate : LocalDate.now();
     }
 
     private long calculateTotalUsageCount(List<AdminUsageAggregateProjection> usageAggregates) {

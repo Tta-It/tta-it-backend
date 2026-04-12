@@ -17,6 +17,8 @@ public interface AdminDashboardMapper {
     // 대기 중인 협약 신청 수 KPI
     Integer countPendingApplications();
 
+    LocalDate findLatestUsageStatDate();
+
     List<AdminUsageAggregateProjection> findUsageAggregates(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
     List<AdminPriorityRegionProjection> findPriorityRegionCandidates(
