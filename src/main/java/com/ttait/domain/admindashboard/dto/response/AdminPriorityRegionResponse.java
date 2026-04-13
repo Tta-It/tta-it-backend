@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 배치 우선 검토 지역 목록에 필요한 데이터.
+ * 배치 우선 검토 지역 목록에 표시할 대여소 데이터입니다.
  */
 @Getter
 @Setter

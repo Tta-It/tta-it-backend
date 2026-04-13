@@ -27,7 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 총 관리자 대시보드 응답을 조립하는 서비스 구현체.
+ * 총관리자 대시보드 응답을 집계 데이터와 화면용 목록으로 조립하는 서비스 구현체입니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -36,9 +36,12 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     private final AdminDashboardMapper adminDashboardMapper;
 
+    /**
+     * 총관리자 대시보드 전체 응답을 조회합니다.
+     */
     @Override
     public AdminDashboardResponse getDashboard(AdminDashboardSearchRequest request) {
-        // 기간이 없으면 최근 7일 기준으로 조회한다.
+        // 기간이 없으면 DB에 존재하는 최신 통계일 기준 최근 7일을 조회합니다.
         LocalDate latestUsageStatDate = resolveLatestUsageStatDate();
         LocalDate earliestUsageStatDate = adminDashboardMapper.findEarliestUsageStatDate();
         LocalDate to = request.getTo() != null ? request.getTo() : latestUsageStatDate;
@@ -82,27 +85,42 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .build();
     }
 
+    /**
+     * 조회 시작일이 종료일보다 늦지 않은지 확인합니다.
+     */
     private void validateDateRange(LocalDate from, LocalDate to) {
         if (from.isAfter(to)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
     }
 
+    /**
+     * 통계 데이터의 최신 일자를 조회하고, 데이터가 없으면 오늘 날짜를 사용합니다.
+     */
     private LocalDate resolveLatestUsageStatDate() {
         LocalDate latestUsageStatDate = adminDashboardMapper.findLatestUsageStatDate();
         return latestUsageStatDate != null ? latestUsageStatDate : LocalDate.now();
     }
 
+    /**
+     * 이전 비교 기간 전체가 통계 데이터 범위 안에 있는지 확인합니다.
+     */
     private boolean hasFullPreviousUsageStatPeriod(LocalDate earliestUsageStatDate, LocalDate previousFrom) {
         return earliestUsageStatDate != null && !previousFrom.isBefore(earliestUsageStatDate);
     }
 
+    /**
+     * 일자/지역 집계 결과에서 전체 이용량 KPI를 계산합니다.
+     */
     private long calculateTotalUsageCount(List<AdminUsageAggregateProjection> usageAggregates) {
         return usageAggregates.stream()
                 .mapToLong(AdminUsageAggregateProjection::getUsageCount)
                 .sum();
     }
 
+    /**
+     * 배치 우선 검토 후보 전체 건수를 계산합니다.
+     */
     private int calculatePriorityReviewCount(List<AdminPriorityRegionProjection> priorityRegionCandidates) {
         if (priorityRegionCandidates.isEmpty()) {
             return 0;
@@ -111,6 +129,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         return priorityRegionCandidates.get(0).getTotalCount();
     }
 
+    /**
+     * 일자/지역 집계 결과를 지역별 이용량 목록으로 변환합니다.
+     */
     private List<AdminRegionUsageResponse> createRegionUsages(
             List<AdminUsageAggregateProjection> usageAggregates
     ) {
@@ -129,6 +150,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .toList();
     }
 
+    /**
+     * 일자/지역 집계 결과를 일자별 이용량 추이 목록으로 변환합니다.
+     */
     private List<AdminUsageTrendResponse> createUsageTrends(
             List<AdminUsageAggregateProjection> usageAggregates
     ) {
@@ -145,6 +169,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .toList();
     }
 
+    /**
+     * 지역별 이용량 목록에서 상위 5개 지역을 추립니다.
+     */
     private List<AdminTopRegionResponse> createTopRegions(List<AdminRegionUsageResponse> regionUsages) {
         int size = Math.min(5, regionUsages.size());
         List<AdminTopRegionResponse> topRegions = new ArrayList<>(size);
@@ -162,6 +189,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         return topRegions;
     }
 
+    /**
+     * 배치 우선 검토 후보 조회 결과를 화면 응답 목록으로 변환합니다.
+     */
     private List<AdminPriorityRegionResponse> createPriorityRegions(
             List<AdminPriorityRegionProjection> priorityRegionCandidates
     ) {

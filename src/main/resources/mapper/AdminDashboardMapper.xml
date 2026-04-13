@@ -4,25 +4,30 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ttait.domain.admindashboard.mapper.AdminDashboardMapper">
 
+    <!-- 통계 데이터가 존재하는 시작일을 조회해 이전 비교 기간 조회 가능 여부를 판단한다. -->
     <select id="findEarliestUsageStatDate" resultType="java.time.LocalDate">
         SELECT MIN(stat_date)
         FROM t_station_usage_stat
     </select>
 
+    <!-- 통계 데이터가 존재하는 최신일을 조회해 기본 조회 기간의 기준일로 사용한다. -->
     <select id="findLatestUsageStatDate" resultType="java.time.LocalDate">
         SELECT MAX(stat_date)
         FROM t_station_usage_stat
     </select>
 
+    <!-- 승인 대기 중인 협약 신청 건수를 KPI 카드에 표시하기 위해 조회한다. -->
     <select id="countPendingApplications" resultType="int">
         SELECT COUNT(*)
         FROM t_organization
         WHERE agreement_status = 'PENDING'
     </select>
 
+    <!-- 지정 기간의 이용량을 일자와 지역 단위로 집계해 차트와 상위 지역 목록에서 재사용한다. -->
     <select id="findUsageAggregates"
             resultType="com.ttait.domain.admindashboard.dto.projection.AdminUsageAggregateProjection">
         WITH station_daily_usage AS (
+            <!-- 같은 날짜/대여소에 여러 행이 있을 수 있어 먼저 대여소 일별 이용량으로 묶는다. -->
             SELECT
                 u.stat_date,
                 u.station_code,
@@ -41,9 +46,11 @@
         ORDER BY d.stat_date ASC, region_name ASC
     </select>
 
+    <!-- 현재 기간 이용량이 이전 동일 기간보다 증가한 대여소를 배치 우선 검토 후보로 조회한다. -->
     <select id="findPriorityRegionCandidates"
             resultType="com.ttait.domain.admindashboard.dto.projection.AdminPriorityRegionProjection">
         WITH current_station_usage AS (
+            <!-- 조회 기간의 대여소별 이용량이다. -->
             SELECT
                 u.station_code,
                 SUM(u.usage_count) AS current_usage
@@ -52,6 +59,7 @@
             GROUP BY u.station_code
         ),
         previous_station_usage AS (
+            <!-- 조회 기간과 같은 길이의 이전 기간 대여소별 이용량이다. -->
             SELECT
                 u.station_code,
                 SUM(u.usage_count) AS previous_usage
@@ -60,6 +68,7 @@
             GROUP BY u.station_code
         ),
         priority_candidates AS (
+            <!-- 이전 이용량이 있는 대여소 중 10% 이상 증가한 후보만 남긴다. -->
             SELECT
                 c.station_code,
                 s.station_name,
@@ -101,6 +110,7 @@
         ORDER BY rank ASC
     </select>
 
+    <!-- 최근 승인 대기 협약 신청 5건을 대시보드 목록에 표시하기 위해 조회한다. -->
     <select id="findPendingApplications"
             resultType="com.ttait.domain.admindashboard.dto.response.AdminPendingApplicationResponse">
         SELECT

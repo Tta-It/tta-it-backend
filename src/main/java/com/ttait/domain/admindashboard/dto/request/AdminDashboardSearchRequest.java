@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * 총 관리자 대시보드 조회 조건을 담는 요청 객체.
+ * 총관리자 대시보드 조회 기간 조건을 담는 요청 객체입니다.
  */
 @Getter
 @Setter

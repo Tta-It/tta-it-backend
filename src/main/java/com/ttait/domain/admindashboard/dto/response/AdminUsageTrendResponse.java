@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 날짜별 이용량 추이 차트용 데이터.
+ * 일자별 이용량 추이 차트에 표시할 데이터입니다.
  */
 @Getter
 @Setter
