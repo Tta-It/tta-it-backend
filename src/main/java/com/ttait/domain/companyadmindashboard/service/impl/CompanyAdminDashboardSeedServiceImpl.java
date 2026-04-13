@@ -17,7 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 승인된 기업 기준으로 기업 관리자 대시보드용 임직원/이용 데이터를 생성한다.
+ * 승인된 기업의 임직원과 이용내역 시드 데이터를 생성하는 서비스입니다.
+ * 승인 이벤트 이후 백그라운드에서 실행되며, 이미 생성된 기업은 중복 생성하지 않습니다.
  */
 @Slf4j
 @Service
@@ -25,20 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompanyAdminDashboardSeedServiceImpl implements CompanyAdminDashboardSeedService {
 
     private static final int EMPLOYEE_INSERT_BATCH_SIZE = 50;
-    private static final String[] LAST_NAMES = {
-            "김", "이", "박", "최", "정", "강", "조", "윤", "장", "임"
-    };
-    private static final String[] FIRST_NAMES = {
-            "민수", "서준", "지우", "예진", "하은", "도윤", "지훈", "수빈", "현우", "나연",
-            "성민", "다은", "유진", "지민", "태윤", "은서", "혜원", "준호", "소연", "민지"
-    };
-    private static final String[] DEPARTMENTS = {
-            "개발팀", "인사팀", "기획팀", "운영팀", "마케팅팀", "디자인팀", "영업팀", "전략팀"
-    };
-    private static final String[] POSITIONS = {
-            "사원", "주임", "대리", "과장", "차장"
-    };
-
     private static final String[] SEED_LAST_NAMES = {
             "김", "이", "박", "최", "정", "강", "조", "윤", "장", "임"
     };

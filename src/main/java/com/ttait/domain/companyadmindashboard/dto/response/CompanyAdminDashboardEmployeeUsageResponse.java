@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * 임직원 목록에서 보여줄 직원별 월간 이용 요약 응답입니다.
+ */
 @Getter
 @Setter
 @NoArgsConstructor

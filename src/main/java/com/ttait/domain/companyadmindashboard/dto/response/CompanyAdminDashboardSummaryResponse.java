@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * 선택 월 기준 전체 이용 횟수, 이동 거리, 탄소 절감량 KPI를 담는 응답입니다.
+ */
 @Getter
 @Setter
 @NoArgsConstructor

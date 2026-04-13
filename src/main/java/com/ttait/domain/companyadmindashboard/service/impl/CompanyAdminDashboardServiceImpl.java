@@ -20,7 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 기업 관리자 대시보드 응답을 조립하는 서비스 구현체.
+ * 기업 관리자 대시보드 응답을 조립하는 서비스입니다.
+ * 조회 월 기준의 임직원 이용 요약과 차트용 월별 집계를 함께 구성합니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,6 +30,10 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
 
     private final CompanyAdminDashboardMapper companyAdminDashboardMapper;
 
+    /**
+     * 선택 월 기준의 기업 관리자 대시보드 데이터를 구성합니다.
+     * 임직원별 월간 이용 요약과 최근 5개월 월별 전체 이용 횟수를 함께 내려줍니다.
+     */
     @Override
     public CompanyAdminDashboardResponse getDashboard(Long organizationId, CompanyAdminDashboardSearchRequest request) {
         validateOrganizationId(organizationId);
@@ -59,6 +64,9 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
                 .build();
     }
 
+    /**
+     * 선택한 임직원의 월간 이용 요약, 일자별 이용내역, 가장 최근 이용내역을 조회합니다.
+     */
     @Override
     public CompanyAdminDashboardEmployeeDetailResponse getEmployeeDetail(
             Long organizationId,
@@ -91,12 +99,18 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
         return detail;
     }
 
+    /**
+     * 로그인 사용자에 연결된 기업 ID가 있는지 확인합니다.
+     */
     private void validateOrganizationId(Long organizationId) {
         if (organizationId == null) {
             throw new BusinessException(ErrorCode.ORGANIZATION_NOT_FOUND);
         }
     }
 
+    /**
+     * 요청 월을 월 시작일/종료일과 월별 차트 시작일로 변환합니다.
+     */
     private SearchCriteria resolveCriteria(CompanyAdminDashboardSearchRequest request) {
         String rawTargetMonth = request != null ? request.getTargetMonth() : null;
         YearMonth targetMonth = parseTargetMonth(rawTargetMonth);
@@ -108,6 +122,9 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
         );
     }
 
+    /**
+     * targetMonth 파라미터를 파싱하고, 없으면 현재 월을 기본값으로 사용합니다.
+     */
     private YearMonth parseTargetMonth(String rawTargetMonth) {
         if (rawTargetMonth == null || rawTargetMonth.isBlank()) {
             return YearMonth.from(LocalDate.now());
@@ -120,6 +137,9 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
         }
     }
 
+    /**
+     * 집계 결과가 없을 때 화면에서 null 처리 없이 사용할 기본 요약값을 만듭니다.
+     */
     private CompanyAdminDashboardSummaryResponse emptySummary() {
         return CompanyAdminDashboardSummaryResponse.builder()
                 .totalUsageCount(0L)
