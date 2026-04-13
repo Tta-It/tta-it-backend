@@ -4,6 +4,7 @@ import com.ttait.domain.companyadmindashboard.service.CompanyAdminDashboardSeedS
 import com.ttait.domain.notification.event.ApplicationApprovedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -15,6 +16,7 @@ public class AgreementSeedEventListener {
 
     private final CompanyAdminDashboardSeedService companyAdminDashboardSeedService;
 
+    @Async("companyDashboardSeedExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void seedAfterAgreementApproved(ApplicationApprovedEvent event) {
         try {
