@@ -47,4 +47,5 @@ app:
 logging:
   level:
     com.ttait: INFO
+    com.ttait.global.logging: DEBUG
     org.mybatis: INFO
