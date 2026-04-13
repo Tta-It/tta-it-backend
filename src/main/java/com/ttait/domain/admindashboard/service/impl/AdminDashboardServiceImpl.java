@@ -40,6 +40,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     public AdminDashboardResponse getDashboard(AdminDashboardSearchRequest request) {
         // 기간이 없으면 최근 7일 기준으로 조회한다.
         LocalDate latestUsageStatDate = resolveLatestUsageStatDate();
+        LocalDate earliestUsageStatDate = adminDashboardMapper.findEarliestUsageStatDate();
         LocalDate to = request.getTo() != null ? request.getTo() : latestUsageStatDate;
         LocalDate from = request.getFrom() != null ? request.getFrom() : to.minusDays(6);
         validateDateRange(from, to);
@@ -60,7 +61,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         List<AdminUsageTrendResponse> usageTrends = createUsageTrends(usageAggregates);
         List<AdminTopRegionResponse> topRegions = createTopRegions(regionUsages);
         List<AdminPriorityRegionProjection> priorityRegionCandidates =
-                adminDashboardMapper.findPriorityRegionCandidates(from, to, previousFrom, previousTo);
+                hasFullPreviousUsageStatPeriod(earliestUsageStatDate, previousFrom)
+                        ? adminDashboardMapper.findPriorityRegionCandidates(from, to, previousFrom, previousTo)
+                        : List.of();
         List<AdminPriorityRegionResponse> priorityRegions = createPriorityRegions(priorityRegionCandidates);
         List<AdminPendingApplicationResponse> pendingApplications = adminDashboardMapper.findPendingApplications();
 
@@ -88,6 +91,10 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     private LocalDate resolveLatestUsageStatDate() {
         LocalDate latestUsageStatDate = adminDashboardMapper.findLatestUsageStatDate();
         return latestUsageStatDate != null ? latestUsageStatDate : LocalDate.now();
+    }
+
+    private boolean hasFullPreviousUsageStatPeriod(LocalDate earliestUsageStatDate, LocalDate previousFrom) {
+        return earliestUsageStatDate != null && !previousFrom.isBefore(earliestUsageStatDate);
     }
 
     private long calculateTotalUsageCount(List<AdminUsageAggregateProjection> usageAggregates) {
