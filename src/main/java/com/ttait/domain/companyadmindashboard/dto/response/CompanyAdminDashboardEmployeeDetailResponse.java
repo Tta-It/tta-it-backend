@@ -22,6 +22,6 @@ public class CompanyAdminDashboardEmployeeDetailResponse {
     private Long usageCount;
     private BigDecimal travelDistance;
     private BigDecimal carbonReduction;
-    private Boolean rewardTarget;
+    private CompanyAdminDashboardEmployeeDailyUsageResponse latestUsage;
     private List<CompanyAdminDashboardEmployeeDailyUsageResponse> dailyUsages;
 }

@@ -11,10 +11,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CompanyAdminDashboardRewardCriteriaResponse {
+public class CompanyAdminDashboardMonthlyUsageResponse {
 
     private String targetMonth;
-    private Integer rewardTargetPercent;
-    private Integer minimumMonthlyUsageCount;
-    private boolean rewardOnly;
+    private Long usageCount;
 }

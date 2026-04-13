@@ -3,6 +3,7 @@ package com.ttait.domain.companyadmindashboard.mapper;
 import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDailyUsageResponse;
 import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDetailResponse;
 import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeUsageResponse;
+import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardMonthlyUsageResponse;
 import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardSummaryResponse;
 import java.time.LocalDate;
 import java.util.List;
@@ -18,32 +19,36 @@ public interface CompanyAdminDashboardMapper {
     CompanyAdminDashboardSummaryResponse findSummary(
             @Param("organizationId") Long organizationId,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate,
-            @Param("rewardTargetPercent") int rewardTargetPercent,
-            @Param("minimumMonthlyUsageCount") int minimumMonthlyUsageCount
+            @Param("endDate") LocalDate endDate
     );
 
     List<CompanyAdminDashboardEmployeeUsageResponse> findEmployeeUsages(
             @Param("organizationId") Long organizationId,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate,
-            @Param("rewardTargetPercent") int rewardTargetPercent,
-            @Param("minimumMonthlyUsageCount") int minimumMonthlyUsageCount,
-            @Param("rewardOnly") boolean rewardOnly
+            @Param("endDate") LocalDate endDate
     );
 
     CompanyAdminDashboardEmployeeDetailResponse findEmployeeDetail(
             @Param("organizationId") Long organizationId,
             @Param("employeeId") Long employeeId,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate,
-            @Param("rewardTargetPercent") int rewardTargetPercent,
-            @Param("minimumMonthlyUsageCount") int minimumMonthlyUsageCount
+            @Param("endDate") LocalDate endDate
     );
 
     List<CompanyAdminDashboardEmployeeDailyUsageResponse> findEmployeeDailyUsages(
             @Param("organizationId") Long organizationId,
             @Param("employeeId") Long employeeId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    CompanyAdminDashboardEmployeeDailyUsageResponse findLatestEmployeeUsage(
+            @Param("organizationId") Long organizationId,
+            @Param("employeeId") Long employeeId
+    );
+
+    List<CompanyAdminDashboardMonthlyUsageResponse> findMonthlyUsages(
+            @Param("organizationId") Long organizationId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );

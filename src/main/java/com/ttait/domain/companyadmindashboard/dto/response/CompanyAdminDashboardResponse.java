@@ -18,6 +18,6 @@ import lombok.Setter;
 public class CompanyAdminDashboardResponse {
 
     private CompanyAdminDashboardSummaryResponse summary;
-    private CompanyAdminDashboardRewardCriteriaResponse rewardCriteria;
+    private List<CompanyAdminDashboardMonthlyUsageResponse> monthlyUsages;
     private List<CompanyAdminDashboardEmployeeUsageResponse> employeeUsages;
 }

@@ -17,5 +17,4 @@ public class CompanyAdminDashboardSummaryResponse {
     private Long totalUsageCount;
     private BigDecimal totalTravelDistance;
     private BigDecimal totalCarbonReduction;
-    private Integer rewardTargetEmployeeCount;
 }

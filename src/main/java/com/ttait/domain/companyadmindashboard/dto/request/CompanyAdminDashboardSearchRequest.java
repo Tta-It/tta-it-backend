@@ -11,7 +11,4 @@ import lombok.Setter;
 public class CompanyAdminDashboardSearchRequest {
 
     private String targetMonth;
-    private Integer rewardTargetPercent;
-    private Integer minimumMonthlyUsageCount;
-    private Boolean rewardOnly;
 }

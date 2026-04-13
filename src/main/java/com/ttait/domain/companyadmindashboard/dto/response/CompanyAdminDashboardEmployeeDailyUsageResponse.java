@@ -19,4 +19,5 @@ public class CompanyAdminDashboardEmployeeDailyUsageResponse {
     private Long usageCount;
     private BigDecimal travelDistance;
     private BigDecimal carbonAmount;
+    private BigDecimal usageDurationMinutes;
 }
