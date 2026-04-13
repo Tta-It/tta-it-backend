@@ -3,6 +3,7 @@ package com.ttait.domain.admindashboard.mapper;
 import com.ttait.domain.admindashboard.dto.projection.AdminPriorityRegionProjection;
 import com.ttait.domain.admindashboard.dto.projection.AdminUsageAggregateProjection;
 import com.ttait.domain.admindashboard.dto.response.AdminPendingApplicationResponse;
+import com.ttait.domain.admindashboard.dto.response.AdminUsageTrendResponse;
 import java.time.LocalDate;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
@@ -34,14 +35,18 @@ public interface AdminDashboardMapper {
      */
     List<AdminUsageAggregateProjection> findUsageAggregates(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
+    List<AdminUsageTrendResponse> findDistrictUsageTrends(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("district") String district
+    );
+
     /**
-     * 현재 기간과 이전 동일 기간을 비교해 배치 우선 검토 후보를 조회합니다.
+     * 조회 기간 내 전체 대여소 평균 이용량을 기준으로 배치 우선 검토 후보를 조회합니다.
      */
     List<AdminPriorityRegionProjection> findPriorityRegionCandidates(
             @Param("from") LocalDate from,
-            @Param("to") LocalDate to,
-            @Param("previousFrom") LocalDate previousFrom,
-            @Param("previousTo") LocalDate previousTo
+            @Param("to") LocalDate to
     );
 
     /**

@@ -13,4 +13,5 @@ public class AdminDashboardSearchRequest {
 
     private LocalDate from;
     private LocalDate to;
+    private String district;
 }
