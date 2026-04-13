@@ -1,52 +1,51 @@
 package com.ttait.domain.admindashboard.mapper;
 
-import com.ttait.domain.admindashboard.dto.response.AdminPriorityRegionResponse;
+import com.ttait.domain.admindashboard.dto.projection.AdminPriorityRegionProjection;
+import com.ttait.domain.admindashboard.dto.projection.AdminUsageAggregateProjection;
 import com.ttait.domain.admindashboard.dto.response.AdminPendingApplicationResponse;
-import com.ttait.domain.admindashboard.dto.response.AdminRegionUsageResponse;
-import com.ttait.domain.admindashboard.dto.response.AdminTopRegionResponse;
-import com.ttait.domain.admindashboard.dto.response.AdminUsageTrendResponse;
 import java.time.LocalDate;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 /**
- * 총 관리자 대시보드 화면별 집계 조회를 담당하는 MyBatis 매퍼.
+ * 총관리자 대시보드 화면에 필요한 집계 데이터를 조회하는 MyBatis 매퍼입니다.
  */
 @Mapper
 public interface AdminDashboardMapper {
 
-    // 기간 내 전체 이용량 KPI
-    Long findTotalUsageCount(@Param("from") LocalDate from, @Param("to") LocalDate to);
-
-    // 대기 중인 협약 신청 수 KPI
+    /**
+     * 승인 대기 중인 협약 신청 수를 조회합니다.
+     */
     Integer countPendingApplications();
 
-    // 배치 검토 필요 지역 수 KPI
-    Integer countPriorityRegions(
+    /**
+     * 대여소 이용 통계 데이터가 존재하는 가장 이른 날짜를 조회합니다.
+     */
+    LocalDate findEarliestUsageStatDate();
+
+    /**
+     * 대여소 이용 통계 데이터가 존재하는 가장 최근 날짜를 조회합니다.
+     */
+    LocalDate findLatestUsageStatDate();
+
+    /**
+     * 지정 기간의 이용량을 일자와 지역 단위로 집계합니다.
+     */
+    List<AdminUsageAggregateProjection> findUsageAggregates(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /**
+     * 현재 기간과 이전 동일 기간을 비교해 배치 우선 검토 후보를 조회합니다.
+     */
+    List<AdminPriorityRegionProjection> findPriorityRegionCandidates(
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("previousFrom") LocalDate previousFrom,
             @Param("previousTo") LocalDate previousTo
     );
 
-    // 지역별 이용량 Bar Chart
-    List<AdminRegionUsageResponse> findRegionUsages(@Param("from") LocalDate from, @Param("to") LocalDate to);
-
-    // 기간별 이용량 추이 Line Chart
-    List<AdminUsageTrendResponse> findUsageTrends(@Param("from") LocalDate from, @Param("to") LocalDate to);
-
-    // 수요 상위 지역 TOP 5
-    List<AdminTopRegionResponse> findTopRegions(@Param("from") LocalDate from, @Param("to") LocalDate to);
-
-    // 배치 우선 검토 지역 목록
-    List<AdminPriorityRegionResponse> findPriorityRegions(
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to,
-            @Param("previousFrom") LocalDate previousFrom,
-            @Param("previousTo") LocalDate previousTo
-    );
-
-    // 최근 대기 중 협약 신청 목록
+    /**
+     * 최근 승인 대기 협약 신청 목록을 조회합니다.
+     */
     List<AdminPendingApplicationResponse> findPendingApplications();
 }

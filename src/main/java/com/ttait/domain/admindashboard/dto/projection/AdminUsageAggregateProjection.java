@@ -1,22 +1,21 @@
-package com.ttait.domain.admindashboard.dto.response;
+package com.ttait.domain.admindashboard.dto.projection;
 
 import java.time.LocalDate;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 일자별 이용량 추이 차트에 표시할 데이터입니다.
+ * 대여소 이용 통계를 일자와 지역 단위로 집계한 내부 조회 결과입니다.
  */
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class AdminUsageTrendResponse {
+public class AdminUsageAggregateProjection {
 
     private LocalDate statDate;
+    private String regionName;
     private long usageCount;
 }

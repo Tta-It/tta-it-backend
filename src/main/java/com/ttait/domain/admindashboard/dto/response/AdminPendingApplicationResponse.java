@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 추후 협약 신청 현황 영역에 사용할 데이터.
+ * 최근 승인 대기 협약 신청 목록에 표시할 데이터입니다.
  */
 @Getter
 @Setter

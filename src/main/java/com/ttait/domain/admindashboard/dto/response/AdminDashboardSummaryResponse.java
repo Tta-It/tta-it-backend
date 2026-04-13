@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 상단 요약 카드 영역에 필요한 수치를 담는다.
+ * 총관리자 대시보드 상단 KPI 카드에 표시할 요약 수치입니다.
  */
 @Getter
 @Setter

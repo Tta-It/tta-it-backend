@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 수요 상위 지역 목록에 필요한 데이터.
+ * 수요 상위 지역 목록에 표시할 지역 순위 데이터입니다.
  */
 @Getter
 @Setter
