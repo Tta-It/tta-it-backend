@@ -67,11 +67,11 @@
                 END AS usage_growth_rate
             FROM current_station_usage c
             JOIN t_station s ON s.station_code = c.station_code
-            LEFT JOIN previous_station_usage p ON p.station_code = c.station_code
+            JOIN previous_station_usage p ON p.station_code = c.station_code
             WHERE c.current_usage >= 10
               AND (
-                    NVL(p.previous_usage, 0) = 0
-                    OR c.current_usage >= p.previous_usage * 1.1
+                    p.previous_usage > 0
+                    AND c.current_usage >= p.previous_usage * 1.1
               )
         )
         SELECT
