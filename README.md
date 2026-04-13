@@ -4,32 +4,77 @@
 
 ## 기술 스택
 
-- Java 17
-- Spring Boot 3.3
-- Spring Security + JWT
-- Spring WebSocket (협약 신청, 승인 처리 실시간 알림)
-- Spring AOP (접근 로그 용도)
-- MyBatis
-- Oracle Database
-- Docker Compose
+| 분류 | 기술 | 버전 |
+|------|------|------|
+| Language | Java | 17 |
+| Framework | Spring Boot | 3.3.5 |
+| Security | Spring Security + JWT (JJWT) | JJWT 0.12.6 |
+| ORM | MyBatis | 3.0.3 |
+| Database | Oracle Database (ojdbc11) | - |
+| Infra | Docker Compose | - |
+| Real-time | Spring WebSocket + STOMP | - |
+| AOP | Spring AOP | - |
+| File | Apache POI (Excel), Commons CSV | POI 5.2.5, CSV 1.10.0 |
+| Util | Lombok | - |
+| Build | Gradle | - |
 
-## 현재 포함된 기능
+## 주요 기능
 
-- 관리자 / 기업 관리자 권한 구분
-- JWT 기반 로그인 인증
-- 관리자 회원가입 (`/auth/signup/admin`)
-- 기업 관리자 회원가입 (`/auth/signup/company-admin`)
-- 내 정보 조회 (`/users/me`)
-- 공통 응답 포맷 / 전역 예외 처리
+### 인증 / 사용자
+- JWT 기반 로그인 인증 (Access Token 4시간)
+- 관리자(ADMIN) / 기업 관리자(COMPANY_ADMIN) 역할 구분
+- 회원가입, 로그인, 로그아웃, 회원 탈퇴
+- 내 정보 조회 (소속 기업 정보 포함)
+
+### 협약 관리
+- 기업 관리자: 협약 신청 제출 (파일 첨부), 조회, 반려 후 재신청
+- 관리자: 신청 목록/상세 조회, 승인/반려 처리, 첨부파일 다운로드
+- 협약 상태 흐름: `DRAFT → PENDING → ACTIVE / REJECTED`
+
+### 대시보드
+- 관리자 대시보드: 전체 통계, 대기 신청, 이용 추이, 지역별 분석
+- 기업 관리자 대시보드: 임직원 이용 현황, 리워드 기준, 개별 상세 조회
+
+### 실시간 알림
+- WebSocket + STOMP 기반 실시간 알림
+- 협약 신청 / 승인 / 반려 이벤트 발행 및 WebSocket 푸시
+
+### 데이터 적재
+- CSV 기반 대여소 마스터 데이터, 이용 통계 자동 적재 (CommandLineRunner, feature flag)
+- 임직원 이용 통계 시드 데이터 생성
+
+### 공통 / 인프라
+- AOP 기반 Controller/Service 공통 로깅
+- 공통 응답 포맷 (`ApiResponse<T>`) / 전역 예외 처리 (`ErrorCode`)
+- 로컬 파일 저장소 (UUID 기반 파일명, 메타데이터 관리)
 - Oracle 스키마 초기화 + 관리자 시드
 
 ## 패키지 구조
 
 ```text
 com.ttait
-|- global          : 공통 설정, 예외, 응답, 시큐리티
-|- domain.auth     : 로그인, 회원가입, 토큰 발급
-|- domain.user     : 사용자 계정/권한/내 정보 조회
+├── global
+│   ├── common         : BaseEntity (타임스탬프 추적)
+│   ├── config         : MyBatis, Web, MessageSource 설정
+│   ├── exception      : BusinessException, ErrorCode, GlobalExceptionHandler
+│   ├── file           : FileStorageService (로컬 파일 저장)
+│   ├── logging        : AOP 기반 Controller/Service 로깅 Aspect
+│   ├── response       : ApiResponse<T> (공통 응답 래퍼)
+│   ├── security       : JWT 필터, 인증, UserDetailsService
+│   └── websocket      : WebSocket 설정, STOMP 인증 인터셉터
+│
+├── domain
+│   ├── auth           : 로그인, 회원가입, 로그아웃, 탈퇴, 토큰 발급
+│   ├── user           : 사용자 계정, 역할, 내 정보 조회
+│   ├── organization   : 기업 엔티티 관리
+│   ├── application    : 협약 신청 제출/심사, 첨부파일
+│   ├── employee       : 기업 임직원 관리
+│   ├── employeeusage  : 임직원 일별 이용 통계
+│   ├── station        : 따릉이 대여소 마스터 데이터
+│   ├── admindashboard : 관리자 대시보드 (전체 통계/분석)
+│   ├── companyadmindashboard : 기업 관리자 대시보드 (임직원 현황)
+│   ├── notification   : 실시간 알림 (이벤트, 리스너, WebSocket 발행)
+│   └── dataimport     : CSV 데이터 적재 (대여소, 이용 통계)
 ```
 
 ## 실행 전 준비
@@ -98,12 +143,54 @@ Spring Boot 는 `spring.config.import` 설정을 통해 프로젝트 루트의 `
 
 IntelliJ 에서 실행할 경우: Run Configuration → Environment variables → EnvFile 플러그인 또는 직접 env var 로드를 사용하세요.
 
-## 기본 API
+## API 목록
 
-- `POST /api/v1/auth/signup/admin`
-- `POST /api/v1/auth/signup/company-admin`
-- `POST /api/v1/auth/login`
-- `GET  /api/v1/users/me`
+### 인증 (`/api/v1/auth`)
+
+| Method | Endpoint | 권한 | 설명 |
+|--------|----------|------|------|
+| POST | `/signup/admin` | 공개 | 관리자 회원가입 |
+| POST | `/signup/company-admin` | 공개 | 기업 관리자 회원가입 + 기업 등록 |
+| POST | `/login` | 공개 | 로그인 (JWT 발급) |
+| POST | `/logout` | 인증 | 로그아웃 |
+| POST | `/withdraw` | 인증 | 회원 탈퇴 (비밀번호 확인) |
+
+### 사용자 (`/api/v1/users`)
+
+| Method | Endpoint | 권한 | 설명 |
+|--------|----------|------|------|
+| GET | `/me` | 인증 | 내 정보 + 소속 기업 조회 |
+
+### 기업 관리자 - 협약 신청 (`/api/v1/company-admin/applications`)
+
+| Method | Endpoint | 권한 | 설명 |
+|--------|----------|------|------|
+| POST | `/` | COMPANY_ADMIN | 협약 신청 제출 (파일 첨부) |
+| POST | `/resubmit` | COMPANY_ADMIN | 반려 후 재신청 |
+| GET | `/me` | COMPANY_ADMIN | 내 신청 현황 조회 |
+
+### 관리자 - 협약 심사 (`/api/v1/admin/applications`)
+
+| Method | Endpoint | 권한 | 설명 |
+|--------|----------|------|------|
+| GET | `/` | ADMIN | 신청 목록 (검색, 상태/날짜 필터, 페이징) |
+| GET | `/{organizationId}` | ADMIN | 신청 상세 + 첨부파일 |
+| GET | `/{organizationId}/files/{fileId}/download` | ADMIN | 첨부파일 다운로드 |
+| POST | `/{organizationId}/approve` | ADMIN | 협약 승인 |
+| POST | `/{organizationId}/reject` | ADMIN | 협약 반려 (사유 입력) |
+
+### 관리자 대시보드 (`/api/v1/admin/dashboard`)
+
+| Method | Endpoint | 권한 | 설명 |
+|--------|----------|------|------|
+| GET | `/` | ADMIN | 전체 통계, 대기 신청, 이용 추이, 지역 분석 |
+
+### 기업 관리자 대시보드 (`/api/v1/company-admin/dashboard`)
+
+| Method | Endpoint | 권한 | 설명 |
+|--------|----------|------|------|
+| GET | `/` | COMPANY_ADMIN | 기업 통계, 임직원 이용 현황, 리워드 기준 |
+| GET | `/employees/{employeeId}` | COMPANY_ADMIN | 임직원 개별 이용 상세 |
 
 ## 기본 관리자 계정
 
@@ -116,9 +203,17 @@ IntelliJ 에서 실행할 경우: Run Configuration → Environment variables �
 
 IntelliJ HTTP Client 파일이 `http/` 디렉터리에 포함되어 있습니다.
 
-- `http/auth.http` — 인증 플로우 테스트 시나리오
-- `http/http-client.env.json` — 공개 환경변수 (commit)
-- `http/http-client.private.env.json.example` — 비밀 환경변수 템플릿 (복사해서 실제 값 채우기)
+| 파일 | 설명 |
+|------|------|
+| `auth.http` | 회원가입, 로그인 시나리오 |
+| `logout.http` | 로그아웃 테스트 |
+| `withdraw.http` | 회원 탈퇴 테스트 |
+| `company-admin-application.http` | 기업 협약 신청 제출/조회 |
+| `company-admin-resubmit.http` | 반려 후 재신청 |
+| `admin-application.http` | 관리자 협약 심사 (목록/상세/승인/반려/파일) |
+| `admin-dashboard.http` | 관리자 대시보드 조회 |
+| `company-admin-dashboard.http` | 기업 관리자 대시보드 조회 |
+| `ws-test.html` | WebSocket 알림 브라우저 테스트 |
 
 ```bash
 cp http/http-client.private.env.json.example http/http-client.private.env.json
