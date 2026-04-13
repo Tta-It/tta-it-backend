@@ -155,6 +155,16 @@ public class AdminApplicationServiceImpl implements AdminApplicationService {
             throw new BusinessException(ErrorCode.APPLICATION_NOT_REVIEWABLE);
         }
 
+        // 반려 시 기존 첨부 파일 삭제 — 재신청 시 새 파일만 보이도록 리프레시
+        User contactUser = userMapper.findByOrganizationId(organizationId);
+        if (contactUser != null) {
+            List<ApplicationFile> oldFiles = applicationFileMapper.findByUserId(contactUser.getId());
+            for (ApplicationFile oldFile : oldFiles) {
+                fileStorageService.delete(oldFile.getFilePath());
+            }
+            applicationFileMapper.deleteByUserId(contactUser.getId());
+        }
+
         Organization refreshed = organizationMapper.findById(organizationId);
         log.info("[ADMIN-REVIEW] rejected — orgId={}", organizationId);
 
