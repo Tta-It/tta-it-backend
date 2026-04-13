@@ -43,7 +43,6 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     public AdminDashboardResponse getDashboard(AdminDashboardSearchRequest request) {
         // 기간이 없으면 DB에 존재하는 최신 통계일 기준 최근 7일을 조회합니다.
         LocalDate latestUsageStatDate = resolveLatestUsageStatDate();
-        LocalDate earliestUsageStatDate = adminDashboardMapper.findEarliestUsageStatDate();
         LocalDate to = request.getTo() != null ? request.getTo() : latestUsageStatDate;
         LocalDate from = request.getFrom() != null ? request.getFrom() : to.minusDays(6);
         validateDateRange(from, to);
@@ -54,19 +53,14 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
             from = latestUsageStatDate.minusDays(periodDays);
         }
 
-        long periodDays = ChronoUnit.DAYS.between(from, to) + 1;
-        LocalDate previousTo = from.minusDays(1);
-        LocalDate previousFrom = previousTo.minusDays(periodDays - 1);
-
+        String district = normalizeDistrict(request.getDistrict());
         Integer pendingApplicationCount = adminDashboardMapper.countPendingApplications();
         List<AdminUsageAggregateProjection> usageAggregates = adminDashboardMapper.findUsageAggregates(from, to);
         List<AdminRegionUsageResponse> regionUsages = createRegionUsages(usageAggregates);
-        List<AdminUsageTrendResponse> usageTrends = createUsageTrends(usageAggregates);
+        List<AdminUsageTrendResponse> usageTrends = createUsageTrends(usageAggregates, from, to, district);
         List<AdminTopRegionResponse> topRegions = createTopRegions(regionUsages);
         List<AdminPriorityRegionProjection> priorityRegionCandidates =
-                hasFullPreviousUsageStatPeriod(earliestUsageStatDate, previousFrom)
-                        ? adminDashboardMapper.findPriorityRegionCandidates(from, to, previousFrom, previousTo)
-                        : List.of();
+                adminDashboardMapper.findPriorityRegionCandidates(from, to);
         List<AdminPriorityRegionResponse> priorityRegions = createPriorityRegions(priorityRegionCandidates);
         List<AdminPendingApplicationResponse> pendingApplications = adminDashboardMapper.findPendingApplications();
 
@@ -102,11 +96,12 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         return latestUsageStatDate != null ? latestUsageStatDate : LocalDate.now();
     }
 
-    /**
-     * 이전 비교 기간 전체가 통계 데이터 범위 안에 있는지 확인합니다.
-     */
-    private boolean hasFullPreviousUsageStatPeriod(LocalDate earliestUsageStatDate, LocalDate previousFrom) {
-        return earliestUsageStatDate != null && !previousFrom.isBefore(earliestUsageStatDate);
+    private String normalizeDistrict(String district) {
+        if (district == null || district.isBlank()) {
+            return null;
+        }
+
+        return district.trim();
     }
 
     /**
@@ -154,8 +149,15 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
      * 일자/지역 집계 결과를 일자별 이용량 추이 목록으로 변환합니다.
      */
     private List<AdminUsageTrendResponse> createUsageTrends(
-            List<AdminUsageAggregateProjection> usageAggregates
+            List<AdminUsageAggregateProjection> usageAggregates,
+            LocalDate from,
+            LocalDate to,
+            String district
     ) {
+        if (district != null) {
+            return adminDashboardMapper.findDistrictUsageTrends(from, to, district);
+        }
+
         Map<LocalDate, Long> usageCountByDate = new TreeMap<>();
         for (AdminUsageAggregateProjection usageAggregate : usageAggregates) {
             usageCountByDate.merge(usageAggregate.getStatDate(), usageAggregate.getUsageCount(), Long::sum);
