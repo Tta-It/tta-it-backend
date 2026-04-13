@@ -18,7 +18,6 @@ import com.ttait.global.exception.ErrorCode;
 import com.ttait.global.security.CustomUserPrincipal;
 import com.ttait.global.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -27,7 +26,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -135,7 +133,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(Long userId) {
-        log.info("[AUTH] logout — userId={}", userId);
     }
 
     @Override
@@ -158,8 +155,6 @@ public class AuthServiceImpl implements AuthService {
 
         // Soft delete: userStatus를 INACTIVE로 변경
         userMapper.updateStatus(userId, UserStatus.INACTIVE);
-
-        log.info("[AUTH] withdrawn — userId={}, role={}", userId, user.getRole());
     }
 
     private void validateUserDuplicate(String loginId, String email) {

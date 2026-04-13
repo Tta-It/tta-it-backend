@@ -18,14 +18,12 @@ import com.ttait.global.file.StoredFile;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApplicationServiceImpl implements ApplicationService {
@@ -65,9 +63,6 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // 제출 후 organization 재조회해서 최신 submitted_at 포함 응답 생성
         Organization refreshed = organizationMapper.findById(organization.getId());
-
-        log.info("[APPLICATION] submitted — userId={}, orgId={}, files={}",
-                userId, organization.getId(), savedFileIds.size());
 
         // 실시간 알림 이벤트 발행 (AFTER_COMMIT 리스너가 WebSocket 으로 push)
         // 현재 트랜잭션이 커밋된 후에만 관리자에게 알림 전송
@@ -145,9 +140,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         Organization refreshed = organizationMapper.findById(organization.getId());
-
-        log.info("[APPLICATION] resubmitted — userId={}, orgId={}, files={}",
-                userId, organization.getId(), savedFileIds.size());
 
         // 실시간 알림 이벤트 발행 — 재신청도 관리자 입장에선 새 검토 대상이므로 기존 이벤트 재사용
         eventPublisher.publishEvent(new ApplicationSubmittedEvent(
