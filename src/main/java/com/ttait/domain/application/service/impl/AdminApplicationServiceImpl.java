@@ -21,7 +21,6 @@ import com.ttait.global.file.FileStorageService;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -31,7 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
  * 관리자 협약 신청 관리 서비스
  * 목록/상세/파일 다운로드/승인/반려 처리
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminApplicationServiceImpl implements AdminApplicationService {
@@ -125,8 +123,6 @@ public class AdminApplicationServiceImpl implements AdminApplicationService {
         }
 
         Organization refreshed = organizationMapper.findById(organizationId);
-        log.info("[ADMIN-REVIEW] approved — orgId={}", organizationId);
-
         // 실시간 알림 이벤트 발행 (AFTER_COMMIT 리스너가 기업 관리자에게 WebSocket push)
         eventPublisher.publishEvent(new ApplicationApprovedEvent(
                 refreshed.getId(),
@@ -166,8 +162,6 @@ public class AdminApplicationServiceImpl implements AdminApplicationService {
         }
 
         Organization refreshed = organizationMapper.findById(organizationId);
-        log.info("[ADMIN-REVIEW] rejected — orgId={}", organizationId);
-
         // 실시간 알림 이벤트 발행 (AFTER_COMMIT 리스너가 기업 관리자에게 WebSocket push, 반려 사유 포함)
         eventPublisher.publishEvent(new ApplicationRejectedEvent(
                 refreshed.getId(),
