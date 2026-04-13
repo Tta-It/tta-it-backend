@@ -3,8 +3,9 @@ package com.ttait.domain.companyadmindashboard.service.impl;
 import com.ttait.domain.companyadmindashboard.dto.request.CompanyAdminDashboardSearchRequest;
 import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDetailResponse;
 import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeUsageResponse;
+import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDailyUsageResponse;
+import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardMonthlyUsageResponse;
 import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardResponse;
-import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardRewardCriteriaResponse;
 import com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardSummaryResponse;
 import com.ttait.domain.companyadmindashboard.mapper.CompanyAdminDashboardMapper;
 import com.ttait.domain.companyadmindashboard.service.CompanyAdminDashboardService;
@@ -19,7 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 기업 관리자 대시보드 응답을 조립하는 서비스 구현체.
+ * 기업 관리자 대시보드 응답을 조립하는 서비스입니다.
+ * 조회 월 기준의 임직원 이용 요약과 차트용 월별 집계를 함께 구성합니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,10 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
 
     private final CompanyAdminDashboardMapper companyAdminDashboardMapper;
 
+    /**
+     * 선택 월 기준의 기업 관리자 대시보드 데이터를 구성합니다.
+     * 임직원별 월간 이용 요약과 최근 5개월 월별 전체 이용 횟수를 함께 내려줍니다.
+     */
     @Override
     public CompanyAdminDashboardResponse getDashboard(Long organizationId, CompanyAdminDashboardSearchRequest request) {
         validateOrganizationId(organizationId);
@@ -36,32 +42,31 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
         CompanyAdminDashboardSummaryResponse summary = companyAdminDashboardMapper.findSummary(
                 organizationId,
                 criteria.startDate(),
-                criteria.endDate(),
-                criteria.rewardTargetPercent(),
-                criteria.minimumMonthlyUsageCount()
+                criteria.endDate()
         );
         List<CompanyAdminDashboardEmployeeUsageResponse> employeeUsages =
                 companyAdminDashboardMapper.findEmployeeUsages(
                         organizationId,
                         criteria.startDate(),
-                        criteria.endDate(),
-                        criteria.rewardTargetPercent(),
-                        criteria.minimumMonthlyUsageCount(),
-                        criteria.rewardOnly()
+                        criteria.endDate()
+                );
+        List<CompanyAdminDashboardMonthlyUsageResponse> monthlyUsages =
+                companyAdminDashboardMapper.findMonthlyUsages(
+                        organizationId,
+                        criteria.monthlyStartDate(),
+                        criteria.endDate()
                 );
 
         return CompanyAdminDashboardResponse.builder()
                 .summary(summary != null ? summary : emptySummary())
-                .rewardCriteria(CompanyAdminDashboardRewardCriteriaResponse.builder()
-                        .targetMonth(criteria.targetMonth().toString())
-                        .rewardTargetPercent(criteria.rewardTargetPercent())
-                        .minimumMonthlyUsageCount(criteria.minimumMonthlyUsageCount())
-                        .rewardOnly(criteria.rewardOnly())
-                        .build())
+                .monthlyUsages(monthlyUsages)
                 .employeeUsages(employeeUsages)
                 .build();
     }
 
+    /**
+     * 선택한 임직원의 월간 이용 요약, 일자별 이용내역, 가장 최근 이용내역을 조회합니다.
+     */
     @Override
     public CompanyAdminDashboardEmployeeDetailResponse getEmployeeDetail(
             Long organizationId,
@@ -75,15 +80,16 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
                 organizationId,
                 employeeId,
                 criteria.startDate(),
-                criteria.endDate(),
-                criteria.rewardTargetPercent(),
-                criteria.minimumMonthlyUsageCount()
+                criteria.endDate()
         );
 
         if (detail == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
 
+        CompanyAdminDashboardEmployeeDailyUsageResponse latestUsage =
+                companyAdminDashboardMapper.findLatestEmployeeUsage(organizationId, employeeId);
+        detail.setLatestUsage(latestUsage);
         detail.setDailyUsages(companyAdminDashboardMapper.findEmployeeDailyUsages(
                 organizationId,
                 employeeId,
@@ -93,36 +99,35 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
         return detail;
     }
 
+    /**
+     * 로그인 사용자에 연결된 기업 ID가 있는지 확인합니다.
+     */
     private void validateOrganizationId(Long organizationId) {
         if (organizationId == null) {
             throw new BusinessException(ErrorCode.ORGANIZATION_NOT_FOUND);
         }
     }
 
+    /**
+     * 요청 월을 월 시작일/종료일과 월별 차트 시작일로 변환합니다.
+     */
     private SearchCriteria resolveCriteria(CompanyAdminDashboardSearchRequest request) {
-        YearMonth targetMonth = parseTargetMonth(request.getTargetMonth());
-        int rewardTargetPercent = request.getRewardTargetPercent() != null ? request.getRewardTargetPercent() : 10;
-        int minimumMonthlyUsageCount = request.getMinimumMonthlyUsageCount() != null
-                ? request.getMinimumMonthlyUsageCount() : 15;
-        boolean rewardOnly = Boolean.TRUE.equals(request.getRewardOnly());
-
-        if (rewardTargetPercent <= 0 || rewardTargetPercent > 100 || minimumMonthlyUsageCount < 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
-        }
+        String rawTargetMonth = request != null ? request.getTargetMonth() : null;
+        YearMonth targetMonth = parseTargetMonth(rawTargetMonth);
 
         return new SearchCriteria(
-                targetMonth,
                 targetMonth.atDay(1),
                 targetMonth.atEndOfMonth(),
-                rewardTargetPercent,
-                minimumMonthlyUsageCount,
-                rewardOnly
+                targetMonth.minusMonths(4).atDay(1)
         );
     }
 
+    /**
+     * targetMonth 파라미터를 파싱하고, 없으면 현재 월을 기본값으로 사용합니다.
+     */
     private YearMonth parseTargetMonth(String rawTargetMonth) {
         if (rawTargetMonth == null || rawTargetMonth.isBlank()) {
-            return YearMonth.from(LocalDate.now().minusYears(1));
+            return YearMonth.from(LocalDate.now());
         }
 
         try {
@@ -132,22 +137,21 @@ public class CompanyAdminDashboardServiceImpl implements CompanyAdminDashboardSe
         }
     }
 
+    /**
+     * 집계 결과가 없을 때 화면에서 null 처리 없이 사용할 기본 요약값을 만듭니다.
+     */
     private CompanyAdminDashboardSummaryResponse emptySummary() {
         return CompanyAdminDashboardSummaryResponse.builder()
                 .totalUsageCount(0L)
                 .totalTravelDistance(java.math.BigDecimal.ZERO)
                 .totalCarbonReduction(java.math.BigDecimal.ZERO)
-                .rewardTargetEmployeeCount(0)
                 .build();
     }
 
     private record SearchCriteria(
-            YearMonth targetMonth,
             LocalDate startDate,
             LocalDate endDate,
-            int rewardTargetPercent,
-            int minimumMonthlyUsageCount,
-            boolean rewardOnly
+            LocalDate monthlyStartDate
     ) {
     }
 }

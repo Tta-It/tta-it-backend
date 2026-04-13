@@ -32,13 +32,6 @@
                AND u.organization_id = #{organizationId}
                AND u.usage_date BETWEEN #{startDate} AND #{endDate}
             GROUP BY e.employee_id, e.employee_name, e.department, e.position
-        ),
-        ranked_employee_usage AS (
-            SELECT
-                m.*,
-                ROW_NUMBER() OVER (ORDER BY m.usage_count DESC, m.carbon_amount DESC, m.employee_id ASC) AS usage_rank,
-                COUNT(*) OVER () AS total_employee_count
-            FROM monthly_employee_usage m
         )
     </sql>
 
@@ -49,15 +42,8 @@
         SELECT
             NVL(SUM(usage_count), 0) AS total_usage_count,
             NVL(ROUND(SUM(travel_distance), 1), 0) AS total_travel_distance,
-            NVL(ROUND(SUM(carbon_amount), 1), 0) AS total_carbon_reduction,
-            NVL(SUM(
-                CASE
-                    WHEN usage_rank &lt;= CEIL(total_employee_count * (#{rewardTargetPercent} / 100.0))
-                         AND usage_count &gt;= #{minimumMonthlyUsageCount} THEN 1
-                    ELSE 0
-                END
-            ), 0) AS reward_target_employee_count
-        FROM ranked_employee_usage
+            NVL(ROUND(SUM(carbon_amount), 1), 0) AS total_carbon_reduction
+        FROM monthly_employee_usage
     </select>
 
     <select id="findEmployeeUsages"
@@ -70,17 +56,8 @@
             department,
             usage_count,
             travel_distance,
-            carbon_amount AS carbon_reduction,
-            CASE
-                WHEN usage_rank &lt;= CEIL(total_employee_count * (#{rewardTargetPercent} / 100.0))
-                     AND usage_count &gt;= #{minimumMonthlyUsageCount} THEN 1
-                ELSE 0
-            END AS reward_target
-        FROM ranked_employee_usage
-        <if test="rewardOnly">
-            WHERE usage_rank &lt;= CEIL(total_employee_count * (#{rewardTargetPercent} / 100.0))
-              AND usage_count &gt;= #{minimumMonthlyUsageCount}
-        </if>
+            carbon_amount AS carbon_reduction
+        FROM monthly_employee_usage
         ORDER BY usage_count DESC, carbon_amount DESC, employee_id ASC
     </select>
 
@@ -95,13 +72,8 @@
             position,
             usage_count,
             travel_distance,
-            carbon_amount AS carbon_reduction,
-            CASE
-                WHEN usage_rank &lt;= CEIL(total_employee_count * (#{rewardTargetPercent} / 100.0))
-                     AND usage_count &gt;= #{minimumMonthlyUsageCount} THEN 1
-                ELSE 0
-            END AS reward_target
-        FROM ranked_employee_usage
+            carbon_amount AS carbon_reduction
+        FROM monthly_employee_usage
         WHERE employee_id = #{employeeId}
     </select>
 
@@ -112,11 +84,58 @@
             usage_date,
             usage_count,
             travel_distance,
-            carbon_amount
+            carbon_amount,
+            usage_duration_minutes
         FROM t_employee_usage_stat
         WHERE organization_id = #{organizationId}
           AND employee_id = #{employeeId}
           AND usage_date BETWEEN #{startDate} AND #{endDate}
         ORDER BY usage_date ASC
+    </select>
+
+    <select id="findLatestEmployeeUsage"
+            resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardEmployeeDailyUsageResponse">
+        <!-- 임직원의 가장 최근 이용 내역 1건을 조회한다. -->
+        SELECT
+            usage_date,
+            usage_count,
+            travel_distance,
+            carbon_amount,
+            usage_duration_minutes
+        FROM t_employee_usage_stat
+        WHERE organization_id = #{organizationId}
+          AND employee_id = #{employeeId}
+        ORDER BY usage_date DESC
+        FETCH FIRST 1 ROWS ONLY
+    </select>
+
+    <select id="findMonthlyUsages"
+            resultType="com.ttait.domain.companyadmindashboard.dto.response.CompanyAdminDashboardMonthlyUsageResponse">
+        <!-- 전체 임직원의 월별 이용 횟수를 조회한다. -->
+        WITH month_range AS (
+            SELECT ADD_MONTHS(TRUNC(#{startDate,jdbcType=DATE}, 'MM'), LEVEL - 1) AS target_month
+            FROM dual
+            CONNECT BY ADD_MONTHS(TRUNC(#{startDate,jdbcType=DATE}, 'MM'), LEVEL - 1)
+                &lt;= TRUNC(#{endDate,jdbcType=DATE}, 'MM')
+        ),
+        monthly_usage AS (
+            SELECT
+                TRUNC(u.usage_date, 'MM') AS target_month,
+                SUM(u.usage_count) AS usage_count
+            FROM t_employee_usage_stat u
+            JOIN t_employee e
+                ON e.id = u.employee_id
+               AND e.organization_id = u.organization_id
+            WHERE u.organization_id = #{organizationId}
+              AND u.usage_date BETWEEN #{startDate} AND #{endDate}
+              AND NVL(e.employment_status, 'ACTIVE') = 'ACTIVE'
+            GROUP BY TRUNC(u.usage_date, 'MM')
+        )
+        SELECT
+            TO_CHAR(m.target_month, 'YYYY-MM') AS target_month,
+            NVL(u.usage_count, 0) AS usage_count
+        FROM month_range m
+        LEFT JOIN monthly_usage u ON u.target_month = m.target_month
+        ORDER BY m.target_month ASC
     </select>
 </mapper>

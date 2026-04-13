@@ -8,6 +8,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * 직원 상세 화면에서 사용하는 월간 이용 요약, 최근 이용내역, 일자별 이용내역 응답입니다.
+ */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,6 +25,6 @@ public class CompanyAdminDashboardEmployeeDetailResponse {
     private Long usageCount;
     private BigDecimal travelDistance;
     private BigDecimal carbonReduction;
-    private Boolean rewardTarget;
+    private CompanyAdminDashboardEmployeeDailyUsageResponse latestUsage;
     private List<CompanyAdminDashboardEmployeeDailyUsageResponse> dailyUsages;
 }
