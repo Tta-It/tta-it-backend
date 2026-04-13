@@ -70,7 +70,14 @@
                     WHEN TO_CHAR(CAST(#{startDate,jdbcType=DATE} AS DATE) + LEVEL - 1, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH')
                          IN ('SAT', 'SUN') THEN 1
                     ELSE 0
-                END AS weekend
+                END AS weekend,
+                CASE
+                    WHEN EXTRACT(MONTH FROM CAST(#{startDate,jdbcType=DATE} AS DATE) + LEVEL - 1)
+                         IN (3, 4, 5, 9, 10, 11) THEN 1.25
+                    WHEN EXTRACT(MONTH FROM CAST(#{startDate,jdbcType=DATE} AS DATE) + LEVEL - 1)
+                         IN (6, 7, 8) THEN 1.05
+                    ELSE 0.70
+                END AS season_factor
             FROM dual
             CONNECT BY LEVEL &lt;= #{dayCount}
         ),
@@ -94,6 +101,7 @@
                 e.employee_id,
                 d.usage_date,
                 d.weekend,
+                d.season_factor,
                 MOD(ORA_HASH(e.employee_id || TO_CHAR(d.usage_date, 'YYYYMMDD') || 'G'), 10000) / 10000 AS random_gate,
                 MOD(ORA_HASH(e.employee_id || TO_CHAR(d.usage_date, 'YYYYMMDD') || 'C'), 10000) / 10000 AS random_count,
                 MOD(ORA_HASH(e.employee_id || TO_CHAR(d.usage_date, 'YYYYMMDD') || 'D'), 10000) / 10000 AS random_distance,
@@ -129,7 +137,7 @@
                     ELSE 3.8 + (random_duration * 1.4)
                 END AS duration_factor
             FROM candidates
-            WHERE random_gate &lt;= CASE WHEN weekend = 1 THEN 0.38 ELSE 0.26 END
+            WHERE random_gate &lt;= CASE WHEN weekend = 1 THEN 0.38 ELSE 0.26 END * season_factor
         )
         SELECT
             employee_usage_stat_seq.NEXTVAL,
