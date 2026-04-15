@@ -2,6 +2,54 @@
 
 서울시 따릉이 기업 협약 기반 ESG 실천 플랫폼용 Spring Boot 백엔드입니다.
 
+## 데모 & 자료
+
+| 자료 | 링크 |
+|------|------|
+| 시연 영상 (YouTube) | [https://www.youtube.com/watch?v=RWAEyA6tT4o](https://www.youtube.com/watch?v=RWAEyA6tT4o) |
+| 발표 자료 (PPT) | [Google Drive](https://drive.google.com/drive/folders/1gHs9FTiL03fy9pMPki6E0Ime2h-rydtf?usp=sharing) |
+
+## 팀 구성 및 역할 분담
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/heeej920">
+        <img src="https://github.com/heeej920.png" width="120" alt="주희정"/><br/>
+        <b>주희정</b><br/>
+        <sub>@heeej920</sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/tmdals1207">
+        <img src="https://github.com/tmdals1207.png" width="120" alt="홍승민"/><br/>
+        <b>홍승민</b><br/>
+        <sub>@tmdals1207</sub>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      • 아키텍처 설계 (패키지 · 레이어 구조)<br/>
+      • 공통 응답 · 예외 처리 표준화<br/>
+      • 인증 / 회원 (JWT · 로그인 · 로그아웃 · 탈퇴)<br/>
+      • 협약 신청 · 심사 (제출 · 재신청 · 승인 · 반려)<br/>
+      • 파일 업로드 / 저장소<br/>
+      • WebSocket + STOMP 실시간 알림<br/>
+      • AOP 공통 로깅 · i18n 인프라<br/>
+      • HTTP 테스트 시나리오 작성<br/>
+    </td>
+    <td valign="top">
+      • 관리자 / 기업 대시보드 API<br/>
+      • 통계 집계 쿼리 · DTO 매핑<br/>
+      • 임직원 이용 통계 스키마<br/>
+      • CSV 대여소 자동 적재<br/>
+      • 협약 승인 후 시드 데이터 생성<br/>
+      • 인덱스 · projection · 트랜잭션 최적화
+    </td>
+  </tr>
+</table>
+
 ## 기술 스택
 
 | 분류 | 기술 | 버전 |
