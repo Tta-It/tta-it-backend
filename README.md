@@ -14,10 +14,10 @@
 <table>
   <tr>
     <td align="center">
-      <a href="https://github.com/heeej920">
-        <img src="https://github.com/heeej920.png" width="120" alt="주희정"/><br/>
+      <a href="https://github.com/heejeongJ">
+        <img src="https://github.com/heejeongJ.png" width="120" alt="주희정"/><br/>
         <b>주희정</b><br/>
-        <sub>@heeej920</sub>
+        <sub>@heejeongJ</sub>
       </a>
     </td>
     <td align="center">
